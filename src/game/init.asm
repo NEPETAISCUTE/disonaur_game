@@ -69,7 +69,7 @@ OAMClear:
 
     ld a, 0
     ld [gamestate], a
-    ld [firstIntroFrame], a
+    ld [firstStateFrame], a
     ld [introFrameCnt], a
 
     ld hl, OAMMem

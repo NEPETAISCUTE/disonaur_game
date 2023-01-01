@@ -1,10 +1,14 @@
 GSTATE_INTRO = 0
 GSTATE_GAME = 1
 GSTATE_GAMEOVER = 2
+export GSTATE_INTRO
+export GSTATE_GAME
+export GSTATE_GAMEOVER
 
 
 SECTION "mainRAM", WRAM0
 gamestate:: ds 1
+firstStateFrame:: ds 1
 SECTION "main", ROM0
 main::
     call read_pad

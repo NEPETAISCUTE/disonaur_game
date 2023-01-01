@@ -17,11 +17,10 @@ GROUNDPOS = _SCRN0 + (14 * SCRN_VX_B)
 UNDERGROUNDPOS = GROUNDPOS + SCRN_VX_B ;the y of the ground + 1
 
 SECTION "introRAM", WRAM0
-firstIntroFrame:: ds 1
 introFrameCnt:: ds 1
 SECTION "intro", ROM0
 intro::
-    ld a, [firstIntroFrame]
+    ld a, [firstStateFrame]
     cp 0
     jr nz, .endCpy
 
@@ -56,7 +55,7 @@ intro::
     ld [rLCDC], a
 
     ld a, 1
-    ld [firstIntroFrame], a
+    ld [firstStateFrame], a
 
 .endCpy:
     ld a, [introFrameCnt]
@@ -81,11 +80,24 @@ intro::
 .endDraw
     ld hl, introFrameCnt
     inc [hl]
+
+    ld a, [new_keys]
+    and PADF_START
+    jr z, .skipChangeState
     
+    ld a, GSTATE_GAME
+    ld [gamestate], a
+    ld a, 0
+    ld [firstStateFrame], a
+    jr .leave
+
+.skipChangeState:
     ld a, $78
     ld [OAMMem], a
     ld a, $50
     ld [OAMMem+1], a
     ld a, $10
     ld [OAMMem+2], a
+
+.leave
     ret
