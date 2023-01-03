@@ -19,11 +19,38 @@ UNDERGROUNDPOS = GROUNDPOS + SCRN_VX_B ;the y of the ground + 1
 SECTION "introRAM", WRAM0
 introFrameCnt:: ds 1
 SECTION "intro", ROM0
+;intro screen routine
+;called only when the game state is set to GSTATE_INTRO
+;called in main.asm, function main
 intro::
     ld a, [firstStateFrame]
     cp 0
-    jr nz, .endCpy
+    jr nz, .endFrameSetup
 
+    call initFrame
+
+.endFrameSetup:
+    
+    call handleBlinkingText
+
+    ld hl, introFrameCnt
+    inc [hl]
+
+    ld a, [new_keys]
+    and PADF_START
+    jr z, .leave
+    
+    ld a, GSTATE_GAME
+    ld [gamestate], a
+    ld a, 0
+    ld [firstStateFrame], a
+    jr .leave
+.leave
+    ret
+
+
+;takes care of setting up the display on the first frame, basically prepares tiles that needs to be there right away in order to simplify next rendering frames
+initFrame:
     call LCDOff
 
     ld de, title
@@ -51,13 +78,21 @@ intro::
     cp l
     jr nz, .groundLoop
 
+    ld a, $78
+    ld [OAMMem], a
+    ld a, $50
+    ld [OAMMem+1], a
+    ld a, $10
+    ld [OAMMem+2], a
+
     ld a, LCDCF_ON | LCDCF_BGON | LCDCF_OBJON
     ld [rLCDC], a
 
     ld a, 1
     ld [firstStateFrame], a
 
-.endCpy:
+;takes care of making the "PRESS START" text blink, nothing crazy
+handleBlinkingText:
     ld a, [introFrameCnt]
     cp TEXTTIMING/2
     jr z, .drawPStart
@@ -71,33 +106,10 @@ intro::
     ld a, -1
     ld [introFrameCnt], a
     jr .endDraw
-
-.drawPStart
+.drawPStart:
     ld de, start
     ld hl, STARTPOS
     ld c, STARTSIZE
     call LCDMemcpySmall
-.endDraw
-    ld hl, introFrameCnt
-    inc [hl]
-
-    ld a, [new_keys]
-    and PADF_START
-    jr z, .skipChangeState
-    
-    ld a, GSTATE_GAME
-    ld [gamestate], a
-    ld a, 0
-    ld [firstStateFrame], a
-    jr .leave
-
-.skipChangeState:
-    ld a, $78
-    ld [OAMMem], a
-    ld a, $50
-    ld [OAMMem+1], a
-    ld a, $10
-    ld [OAMMem+2], a
-
-.leave
+.endDraw:
     ret

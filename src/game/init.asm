@@ -71,6 +71,7 @@ OAMClear:
     ld [gamestate], a
     ld [firstStateFrame], a
     ld [introFrameCnt], a
+    ld [animFrameCnt], a
 
     ld hl, OAMMem
     ld c, OAM_COUNT
