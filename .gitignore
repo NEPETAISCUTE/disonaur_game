@@ -1,3 +1,5 @@
 *.o
 *.2bpp
 *.gb
+*.sym
+*.map
