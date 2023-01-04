@@ -36,7 +36,7 @@ SRC_DIR := src
 GAME_DIR  := src/game
 UTIL_DIR  := src/utilities
 OBJ_DIR   := build
-TILES_DIR := assets/tiles
+TILES_DIR := assets
 
 SRC_FILES := $(wildcard $(SRC_DIR)/**/*.$(EXT))
 OBJ_FILES := $(patsubst %.$(EXT),%.o,$(patsubst $(SRC_DIR)/%,$(OBJ_DIR)/%,$(SRC_FILES)))
@@ -54,10 +54,12 @@ LINK_FLAGS  :=
 
 # Basic Build
 
-build: $(TARGET)
+buildAll: 
+	make convertTiles 
+	make $(TARGET)
 
 $(TARGET):$(OBJ_FILES)
-	$(LINK) $^ -o $@ $(LINK_FLAGS)
+	$(LINK) $^ -o $@ $(LINK_FLAGS) -n $(OBJ_DIR)/$(PROJ).sym -m $(OBJ_DIR)/$(PROJ).map
 #   "tkt soeurette je m'occupe du patch"
 	$(PATCH) $(PATCH_FLAGS) $(TARGET) 
 
@@ -71,15 +73,18 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.$(EXT)
 
 convertTiles: $(BPP_FILES)
 $(TILES_DIR)/%.2bpp: $(TILES_DIR)/%.png
-	$(CONVERT) $< -o $@ -c '#000, #555, #aaa, #fff'
+	$(CONVERT) $< -o $@
 
 # File Cleaner
 
 clean: 
 	$(RM) $(OBJ_FILES)
+	$(RM) $(BPP_FILES)
 	$(RM) $(TARGET)
 
 debugPrint:
 	@echo $(SRC_FILES)
 	@echo $(OBJ_FILES)
+	@echo $(PNG_FILES)
+	@echo $(BPP_FILES)
 	@echo end debugPrint

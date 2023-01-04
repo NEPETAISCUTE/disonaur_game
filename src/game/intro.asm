@@ -82,11 +82,14 @@ initFrame:
     ld [OAMMem], a
     ld a, $50
     ld [OAMMem+1], a
-    ld a, $10
+    ld a, $11
     ld [OAMMem+2], a
 
     ld a, LCDCF_ON | LCDCF_BGON | LCDCF_OBJON
     ld [rLCDC], a
+
+    ld a, 0
+    ld [backgroundX], a
 
     ld a, 1
     ld [firstStateFrame], a

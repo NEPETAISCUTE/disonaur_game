@@ -8,6 +8,9 @@ VBlankInterrupt::
     push de
     push hl
 
+    ld a, [backgroundX]
+    ld [rSCX], a
+    
     call StartOAMDMA
 
     pop hl

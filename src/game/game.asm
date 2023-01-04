@@ -12,21 +12,11 @@ game::
 
 .skipFirstFrameLoading:
 
-    ld a, [animFrameCnt]
-    cp 6
-    jr nz, .skipAnimCnt
-    ld a, 0
-    ld [animFrameCnt], a
-    ld hl, OAMMem+2
+    call handleAnim
+
+    ld hl, backgroundX
     inc [hl]
-    ld a, 4
-    cp [hl]
-    jr nz, .skipAnimCnt
-    ld a, 1
-    ld [hl], a
-.skipAnimCnt:
-    ld hl, animFrameCnt
-    inc [hl]
+
     ret
 
 
@@ -62,8 +52,29 @@ initFrame:
     ld a, LCDCF_ON | LCDCF_BGON | LCDCF_OBJON
     ld [rLCDC], a
 
+    ld a, 0
+    ld [backgroundX], a
+
     ld a, 1
     ld [OAMMem+2], a
 
     ld [firstStateFrame], a
+    ret
+
+handleAnim:
+    ld a, [animFrameCnt]
+    cp 6
+    jr nz, .skipAnimCnt
+    ld a, 0
+    ld [animFrameCnt], a
+    ld hl, OAMMem+2
+    inc [hl]
+    ld a, 5
+    cp [hl]
+    jr nz, .skipAnimCnt
+    ld a, 1
+    ld [hl], a
+.skipAnimCnt:
+    ld hl, animFrameCnt
+    inc [hl]
     ret

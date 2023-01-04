@@ -9,6 +9,7 @@ export GSTATE_GAMEOVER
 SECTION "mainRAM", WRAM0
 gamestate:: ds 1
 firstStateFrame:: ds 1
+backgroundX:: ds 1
 SECTION "main", ROM0
 main::
     call read_pad

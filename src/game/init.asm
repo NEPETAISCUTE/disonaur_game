@@ -72,6 +72,7 @@ OAMClear:
     ld [firstStateFrame], a
     ld [introFrameCnt], a
     ld [animFrameCnt], a
+    ld [backgroundX], a
 
     ld hl, OAMMem
     ld c, OAM_COUNT
