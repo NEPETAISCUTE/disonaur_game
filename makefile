@@ -21,7 +21,7 @@ ifeq ($(USED_OS), Windows)
 endif
 
 # ========= Everything project related =========
-
+MAKEFLAGS += --no-print-directory
 PROJ    := runman
 TARGET  := build/$(PROJ).gb
 EXT     := asm
