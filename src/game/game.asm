@@ -14,7 +14,7 @@ isDescent: ds 1
 SECTION "MainGame", ROM0
 game::
     ld a, [firstStateFrame]
-    cp a, 0
+    and a
     jr nz, .skipFirstFrameLoading
 
     call initFrame
@@ -26,7 +26,7 @@ game::
     jr nz, .jumpCheck
 
     ld a, [isDescent]
-    cp 0
+    and a
     jr nz, .doDescent
 
     ld a, [new_keys]
@@ -118,7 +118,7 @@ game::
     ld a, [hl]
     ld d, 8
     call Div8
-    cp 0
+    and a
     call z, updateMap
 
     ld hl, mapPointer
@@ -217,7 +217,7 @@ handleAnim:
 .skipJumpUpFrame:
 
     ld a, [isDescent]
-    cp 0
+    and a
     jr z, .skipFallDownFrame
 
     ld a, $13
@@ -237,7 +237,7 @@ mapGen:
     ld d, h
     ld e, l
     call rand
-    cp 0
+    and a
     ld h, d
     ld l, e
     ld [hli], a

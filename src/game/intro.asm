@@ -24,7 +24,7 @@ SECTION "intro", ROM0
 ;called in main.asm, function main
 intro::
     ld a, [firstStateFrame]
-    cp 0
+    and a
     jr nz, .endFrameSetup
 
     call initFrame
