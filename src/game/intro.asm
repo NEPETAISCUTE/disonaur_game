@@ -44,6 +44,10 @@ intro::
     ld [gamestate], a
     ld a, 0
     ld [firstStateFrame], a
+    
+    ld a, [mainFrameCnt]
+    call srand
+
     jr .leave
 .leave
     ret
@@ -79,11 +83,11 @@ initFrame:
     jr nz, .groundLoop
 
     ld a, $78
-    ld [OAMMem], a
+    ld [playerY], a
     ld a, $50
-    ld [OAMMem+1], a
+    ld [playerX], a
     ld a, $11
-    ld [OAMMem+2], a
+    ld [playerTile], a
 
     ld a, LCDCF_ON | LCDCF_BGON | LCDCF_OBJON
     ld [rLCDC], a
@@ -105,7 +109,7 @@ handleBlinkingText:
     ld e, 0
     ld hl, STARTPOS
     ld c, STARTSIZE
-    call LCDMemsetSmall
+    call LCDMemset
     ld a, -1
     ld [introFrameCnt], a
     jr .endDraw
@@ -113,6 +117,6 @@ handleBlinkingText:
     ld de, start
     ld hl, STARTPOS
     ld c, STARTSIZE
-    call LCDMemcpySmall
+    call LCDMemcpy
 .endDraw:
     ret

@@ -1,5 +1,7 @@
 INCLUDE "hardware.inc"
 
+SECTION UNION "renderHRAM", HRAM
+bcBackup: ds 2
 SECTION "renderRAM", WRAM0
 
 SECTION "render", ROM0
@@ -13,15 +15,15 @@ LCDOff::
 ; @param de Source
 ; @param hl Destination
 ; @param c Length
-LCDMemcpySmall::
+LCDMemcpy::
     ldh a, [rSTAT]
     and STATF_BUSY
-    jr nz, LCDMemcpySmall
+    jr nz, LCDMemcpy
     ld a, [de]
     ld [hli], a
     inc de
     dec c
-    jr nz, LCDMemcpySmall
+    jr nz, LCDMemcpy
     ret
 ;works only after LCD was turned off
 ; @param de Source
@@ -37,17 +39,41 @@ Memcpy::
     jr nz, Memcpy
     ret 
 
-; @param e Value
+; @param b Value
 ; @param hl Destination
 ; @param c Length
-LCDMemsetSmall::
+LCDMemset::
     ldh a, [rSTAT]
     and STATF_BUSY
-    jr nz, LCDMemsetSmall
-    ld a, e
+    jr nz, LCDMemset
+    ld a, b
     ld [hli], a
     dec c
-    jr nz, LCDMemsetSmall
+    jr nz, LCDMemset
+    ret
+
+; @param b Value
+; @param hl Destination
+; @param c Length
+; a trashed
+LCDMemsetV::
+    ldh a, [rSTAT]
+    and STATF_BUSY
+    jr nz, LCDMemsetV
+    ld a, b
+    ld [hl], a
+    ld a, b
+    ldh [bcBackup], a
+    ld a, c
+    ldh [bcBackup+1], a
+    ld bc, SCRN_VX_B
+    add hl, bc
+    ldh a, [bcBackup]
+    ld b, a
+    ldh a, [bcBackup+1]
+    ld c, a
+    dec c
+    jr nz, LCDMemsetV
     ret
     
 ;works only after LCD was turned off

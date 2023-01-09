@@ -1,6 +1,16 @@
 INCLUDE "hardware.inc"
 SECTION "VBlankRAM", WRAM0[$C000]
 OAMMem:: ds OAM_COUNT * sizeof_OAM_ATTRS
+
+playerY = OAMMem
+playerX = OAMMem+1
+playerTile = OAMMem+2
+playerAttributes = OAMMem+3
+export playerX
+export playerY
+export playerTile
+export playerAttributes
+
 SECTION "VBlank", ROM0
 VBlankInterrupt::
     push af
