@@ -181,6 +181,7 @@ initFrame:
     ld a, $78
     ld [playerY], a
 
+    ld b, b
     ld a, $15
     ld [mapPointer], a
     ld [genPointer], a
@@ -225,7 +226,13 @@ handleAnim:
 .skipFallDownFrame:
     ret
 
+PUSHS
+SECTION UNION "mapGenRam", HRAM
+    counter: ds 1
+POPS
+
 mapGen:
+
     ld hl, groundMap
     ld a, [genPointer]
     ld c, a
@@ -236,8 +243,16 @@ mapGen:
 .loop:
     ld d, h
     ld e, l
+    ld a, c
+    ld [counter], a
     call rand
+    ld b, a
+    ld a, [counter]
+    ld c, a
+    ld a, b
     and a
+    jr z, .handleHole
+
     ld h, d
     ld l, e
     ld [hli], a
@@ -254,7 +269,50 @@ mapGen:
     dec c
     jr nz, .loop
 
+    ld a, [genPointer]
+    add SCRN_VX_B - SCRN_X_B
+    cp SCRN_VX_B
+    jr nc, .skipWrapAroundPointer
+
+    sub SCRN_VX_B
+.skipWrapAroundPointer:
+    ld [genPointer], a
     ret
+
+.handleHole:
+    ld a, c
+    ld [counter], a
+    call rand
+    ld h, d
+    ld l, e
+    ld d, 3
+    call Div8
+    inc a
+    ld c, a
+    ld a, [counter]
+    sub c
+    ld [counter], a
+    ld b, 0
+.writeLoop:
+    ld a, b
+    ld [hli], a
+    dec c
+    ld a, h
+    cp HIGH(groundMap+$20)
+    jr nz, .skipWrapAround2
+    ld a, l
+    cp LOW(groundMap+$20)
+    jr nz, .skipWrapAround2
+
+    ld hl, groundMap
+.skipWrapAround2:
+    ld a, c
+    and a
+    jr nz, .writeLoop
+
+    ld a, [counter]
+    ld c, a
+    jr .loop
 
 updateMap:
     ld a, [mapPointer]
@@ -275,7 +333,6 @@ updateMap:
     jr .End
 
 .drawGround
-    ld b, b
     add hl, de
     ld b, 1
     ld c, 1
