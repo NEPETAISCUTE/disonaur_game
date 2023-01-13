@@ -68,6 +68,7 @@ game::
     cp $78
     jr c, .endJump
 
+    ld hl, mapGen
     ld a, [playerX]
     ld b, a
     ld a, [backgroundX]
@@ -99,14 +100,15 @@ game::
     add hl, de
     ld a, 0
     cp [hl]
-    jr nz, .stopDescent
-    jr .endJump
+    jr z, .endJump
 
 .stopDescent
     ld a, 0
     ld [isDescent], a
     ld a, $78
     ld [playerY], a
+    ld a, $01
+    ld [playerTile], a
 
 .endJump:
 
@@ -129,8 +131,8 @@ game::
     call mapGen
     ld a, [genPointer]
     add SCRN_VX_B - SCRN_X_B
-    cp $19
-    jr nc, .skipMapGen
+    cp $20
+    jr c, .skipMapGen
 
     sub $20
     ld [genPointer], a
@@ -181,7 +183,6 @@ initFrame:
     ld a, $78
     ld [playerY], a
 
-    ld b, b
     ld a, $15
     ld [mapPointer], a
     ld [genPointer], a
@@ -250,8 +251,8 @@ mapGen:
     ld a, [counter]
     ld c, a
     ld a, b
-    and a
-    jr z, .handleHole
+    cp a, 4
+    jr c, .handleHole
 
     ld h, d
     ld l, e
@@ -272,7 +273,7 @@ mapGen:
     ld a, [genPointer]
     add SCRN_VX_B - SCRN_X_B
     cp SCRN_VX_B
-    jr nc, .skipWrapAroundPointer
+    jr c, .skipWrapAroundPointer
 
     sub SCRN_VX_B
 .skipWrapAroundPointer:
@@ -288,6 +289,14 @@ mapGen:
     ld d, 3
     call Div8
     inc a
+    ld c, a
+    ld a, [counter]
+    cp c
+    jr c, .fixHoleSize
+    ld a, c
+
+.holeFixed:
+
     ld c, a
     ld a, [counter]
     sub c
@@ -313,6 +322,14 @@ mapGen:
     ld a, [counter]
     ld c, a
     jr .loop
+.fixHoleSize:
+    ld d, a
+    ld a, c
+    sub d
+    ld d, a
+    ld a, d
+    add d
+    jr .holeFixed
 
 updateMap:
     ld a, [mapPointer]

@@ -60,18 +60,13 @@ LCDMemsetV::
     ldh a, [rSTAT]
     and STATF_BUSY
     jr nz, LCDMemsetV
-    ld a, b
-    ld [hl], a
-    ld a, b
-    ldh [bcBackup], a
-    ld a, c
-    ldh [bcBackup+1], a
-    ld bc, SCRN_VX_B
-    add hl, bc
-    ldh a, [bcBackup]
-    ld b, a
-    ldh a, [bcBackup+1]
-    ld c, a
+    ld [hl], b
+    ld a, SCRN_VX_B
+    add a, l
+    ld l, a
+    jr nc, .nocarry
+    inc h
+.nocarry:
     dec c
     jr nz, LCDMemsetV
     ret
