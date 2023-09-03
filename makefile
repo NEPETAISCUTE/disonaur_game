@@ -75,6 +75,9 @@ convertTiles: $(BPP_FILES)
 $(TILES_DIR)/%.2bpp: $(TILES_DIR)/%.png
 	$(CONVERT) $< -o $@
 
+run: $(TARGET)
+	sameboy $(TARGET)
+
 # File Cleaner
 
 clean: 

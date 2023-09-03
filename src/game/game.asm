@@ -6,11 +6,17 @@ SECTION "MainGameRAM", WRAM0
 groundMap: ds SCRN_VX_B
 mapPointer: ds 1
 genPointer: ds 1
+isJumping: ds 1
+
+playerPosX: ds 2
+playerPosY: ds 2
+playerVelX: ds 2
+playerVelY: ds 2
+playerAccelX: ds 1
+playerAccelY: ds 1
 
 animFrameCnt:: ds 1
 
-jumpStart: ds 1
-isDescent: ds 1
 SECTION "MainGame", ROM0
 game::
     ld a, [firstStateFrame]
@@ -21,123 +27,9 @@ game::
 
 .skipFirstFrameLoading:
 
-    ld a, [jumpStart]
-    cp a, $FF
-    jr nz, .jumpCheck
-
-    ld a, [isDescent]
-    and a
-    jr nz, .doDescent
-
     ld a, [new_keys]
-    and PADF_A
-    jr z, .endJump
-
-    ld a, [playerY]
-    ld [jumpStart], a
-
-    ld hl, playerY
-    dec [hl]
-
-    jp .endJump
-
-.jumpCheck:
-    ld a, [cur_keys]
-    and PADF_A
-    jr z, .startDescent
-
-    ld hl, playerY
-    dec [hl]
-
-    ld a, [jumpStart]
-    sub [hl]
-    cp $2F
-    jr c, .endJump
-
-.startDescent:
-    ld a, $FF
-    ld [jumpStart], a
-    ld a, 1
-    ld [isDescent], a
-    jr .endJump
-.doDescent:
-    ld hl, playerY
-    inc [hl]
-
-    ld a, [playerY]
-    cp $78
-    jr c, .endJump
-
-    ld hl, mapGen
-    ld a, [playerX]
-    ld b, a
-    ld a, [backgroundX]
-    add b
-    ld d, 8
-    call Div8
-    ld e, d
-    ld d, 0
-    jr z, .skipLastTileCheck
-
-    inc e
-    ld a, e
-    cp SCRN_VX_B
-    jr nz, .skipWrapAround
-    ld de, 0
-.skipWrapAround:
-    add hl, de
-    ld a, 0
-    cp [hl]
-    jr nz, .stopDescent
-    dec e
-
-.skipLastTileCheck:
-    ld a, $ff
-    cp e
-    jr nz, .skipWrapAround2
-    ld de, SCRN_VX_B-1
-.skipWrapAround2:
-    add hl, de
-    ld a, 0
-    cp [hl]
-    jr z, .endJump
-
-.stopDescent
-    ld a, 0
-    ld [isDescent], a
-    ld a, $78
-    ld [playerY], a
-    ld a, $01
-    ld [playerTile], a
-
-.endJump:
 
     call handleAnim
-
-    ld hl, backgroundX
-    inc [hl]
-
-    ld a, [hl]
-    ld d, 8
-    call Div8
-    and a
-    call z, updateMap
-
-    ld hl, mapPointer
-    ld a, [genPointer]
-    cp [hl]
-    jr nz, .skipMapGen
-
-    call mapGen
-    ld a, [genPointer]
-    add SCRN_VX_B - SCRN_X_B
-    cp $20
-    jr c, .skipMapGen
-
-    sub $20
-    ld [genPointer], a
-
-.skipMapGen:
 
     ret
 
@@ -173,17 +65,21 @@ initFrame:
     ld a, LCDCF_ON | LCDCF_BGON | LCDCF_OBJON
     ld [rLCDC], a
 
-    ld a, 0
-    ld [backgroundX], a
-    ld [isDescent], a
 
-    ld a, $FF
-    ld [jumpStart], a
+    ld a, $00
+    ld [playerPosX], a
+    ld [playerPosY], a
+    ld [playerVelX], a
+    ld [playerVelY], a
+    ld [playerAccelX], a
+    ld [playerAccelY], a
 
+    ld a, $20
+    ld [playerPosX+1], a
     ld a, $78
-    ld [playerY], a
+    ld [playerPosY+1], a
 
-    ld a, $15
+    ld a, SCRN_VX_B-SCRN_X_B
     ld [mapPointer], a
     ld [genPointer], a
 
@@ -209,22 +105,6 @@ handleAnim:
 .skipAnimCnt:
     ld hl, animFrameCnt
     inc [hl]
-
-    ld a, [jumpStart]
-    cp $FF
-    jr z, .skipJumpUpFrame
-
-    ld a, $12
-    ld [playerTile], a
-.skipJumpUpFrame:
-
-    ld a, [isDescent]
-    and a
-    jr z, .skipFallDownFrame
-
-    ld a, $13
-    ld [playerTile], a
-.skipFallDownFrame:
     ret
 
 PUSHS
@@ -232,144 +112,3 @@ SECTION UNION "mapGenRam", HRAM
     counter: ds 1
 POPS
 
-mapGen:
-
-    ld hl, groundMap
-    ld a, [genPointer]
-    ld c, a
-    ld b, 0
-
-    add hl, bc
-    ld c, SCRN_VX_B - SCRN_X_B
-.loop:
-    ld d, h
-    ld e, l
-    ld a, c
-    ld [counter], a
-    call rand
-    ld b, a
-    ld a, [counter]
-    ld c, a
-    ld a, b
-    cp a, 4
-    jr c, .handleHole
-
-    ld h, d
-    ld l, e
-    ld [hli], a
-    ld a, h
-    cp HIGH(groundMap+$20)
-    jr nz, .skipWrapAround
-    ld a, l
-    cp LOW(groundMap+$20)
-    jr nz, .skipWrapAround
-
-    ld hl, groundMap
-.skipWrapAround:
-
-    dec c
-    jr nz, .loop
-
-    ld a, [genPointer]
-    add SCRN_VX_B - SCRN_X_B
-    cp SCRN_VX_B
-    jr c, .skipWrapAroundPointer
-
-    sub SCRN_VX_B
-.skipWrapAroundPointer:
-    ld [genPointer], a
-    ret
-
-.handleHole:
-    ld a, c
-    ld [counter], a
-    call rand
-    ld h, d
-    ld l, e
-    ld d, 3
-    call Div8
-    inc a
-    ld c, a
-    ld a, [counter]
-    cp c
-    jr c, .fixHoleSize
-    ld a, c
-
-.holeFixed:
-
-    ld c, a
-    ld a, [counter]
-    sub c
-    ld [counter], a
-    ld b, 0
-.writeLoop:
-    ld a, b
-    ld [hli], a
-    dec c
-    ld a, h
-    cp HIGH(groundMap+$20)
-    jr nz, .skipWrapAround2
-    ld a, l
-    cp LOW(groundMap+$20)
-    jr nz, .skipWrapAround2
-
-    ld hl, groundMap
-.skipWrapAround2:
-    ld a, c
-    and a
-    jr nz, .writeLoop
-
-    ld a, [counter]
-    ld c, a
-    jr .loop
-.fixHoleSize:
-    ld d, a
-    ld a, c
-    sub d
-    ld d, a
-    ld a, d
-    add d
-    jr .holeFixed
-
-updateMap:
-    ld a, [mapPointer]
-    ld e, a
-    ld d, 0
-    ld hl, groundMap
-    add hl, de
-    ld a, 0
-    cp [hl]
-    ld hl, _SCRN0 + (SCRN_VX_B * GROUND_HEIGHT)
-    jr nz, .drawGround
-
-    add hl, de
-    ld b, 0
-    ld c, 4
-    call LCDMemsetV
-
-    jr .End
-
-.drawGround
-    add hl, de
-    ld b, 1
-    ld c, 1
-    call LCDMemset
-
-    ld hl, _SCRN0 + (SCRN_VX_B * GROUND_HEIGHT+1)
-    add hl, de
-    ld b, 2
-    ld c, 4
-    call LCDMemsetV
-
-.End:
-    ld hl, mapPointer
-    inc [hl]
-    ld a, $20
-    cp [hl]
-    jr nz, .skipWrap
-
-    ld a, 0
-    ld [mapPointer], a
-
-.skipWrap:
-    ret
