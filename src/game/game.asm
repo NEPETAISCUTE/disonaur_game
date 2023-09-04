@@ -119,17 +119,17 @@ handleAnim:
 
 .setIdle:
     ld a, ANIM_PLAYER_IDLE
-    ld [playerAnim], a
+    ld [playerTile], a
     ret
 
 .setJumping:
     ld a, ANIM_PLAYER_JUMP
-    ld [playerAnim], a
+    ld [playerTile], a
     ret 
 
 .setFalling:
     ld a, ANIM_PLAYER_FALL
-    ld [playerAnim], a
+    ld [playerTile], a
     ret
 
 PUSHS
