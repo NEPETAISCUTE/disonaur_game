@@ -1,4 +1,5 @@
 INCLUDE "hardware.inc"
+INCLUDE "spriteAnim.inc"
 
 GROUND_HEIGHT = $0E
 
@@ -15,7 +16,7 @@ playerVelY: ds 2
 playerAccelX: ds 1
 playerAccelY: ds 1
 
-animFrameCnt:: ds 1
+playerAnim:: ds 1
 
 SECTION "MainGame", ROM0
 game::
@@ -90,11 +91,20 @@ initFrame:
     ret
 
 handleAnim:
-    ld a, [animFrameCnt]
+    ld a, [playerVelY]
+    cp 0
+    jr c, .setJumping
+    jr nz, .setFalling
+
+    ld a, [playerAccelX]
+    cp 0
+    jr z, .setIdle
+
+    ld a, [playerAnim]
     cp 6
     jr nz, .skipAnimCnt
     ld a, 0
-    ld [animFrameCnt], a
+    ld [playerAnim], a
     ld hl, OAMMem+2
     inc [hl]
     ld a, 5
@@ -103,8 +113,23 @@ handleAnim:
     ld a, 1
     ld [hl], a
 .skipAnimCnt:
-    ld hl, animFrameCnt
+    ld hl, playerAnim
     inc [hl]
+    ret
+
+.setIdle:
+    ld a, ANIM_PLAYER_IDLE
+    ld [playerAnim], a
+    ret
+
+.setJumping:
+    ld a, ANIM_PLAYER_JUMP
+    ld [playerAnim], a
+    ret 
+
+.setFalling:
+    ld a, ANIM_PLAYER_FALL
+    ld [playerAnim], a
     ret
 
 PUSHS
