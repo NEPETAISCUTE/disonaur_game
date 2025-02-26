@@ -1,3 +1,16 @@
+
+Section "MathLibData", ROM0, ALIGN[8]
+
+;a table of 256 8bit SIN values, ranging from sin(0.0) to sin(2PI) with 2PI in rads, these values maps values from -1 to 1 as from 0 to 128
+sinCosTable::
+FOR angle, 0.0, 0.5, (0.5 / 128)
+	db MUL(SIN(angle) + 1.0, 128.0 / 2) >> 16
+ENDR
+FOR angle, 0.5, 1.0, (0.5 / 128)
+	db MUL(SIN(angle) + 1.0, 128.0 / 2) >> 16
+ENDR
+endSinCosTable::
+
 SECTION "MATH", ROM0
 ;Mul 8: a=d*b
 ;@param a val1

@@ -1,8 +1,67 @@
 INCLUDE "hardware.inc"
 
-SECTION UNION "renderHRAM", HRAM
-bcBackup: ds 2
-SECTION "renderRAM", WRAM0
+SECTION "VideoLibMemory", HRAM
+
+hDrawBuffer:: ds 1
+hFillBuffer:: ds 1
+
+SECTION "VideoLibMemoryBuf1", WRAM0[$C000]
+
+scrollBuffer1:
+	ds SCRN_Y * 2
+
+SECTION "VideoLibMemoryBuf2", WRAM0[$C200]
+scrollBuffer2:
+	ds SCRN_Y * 2
+
+SECTION "videoLib", ROM0
+
+;a = address of OAM data
+OAMDMAHandlerCode::
+	LOAD "OAMHandler", HRAM
+OAMDMAHandler::
+	ldh [rDMA], a
+	ld a, 40
+.wait:
+	dec a
+	jr nz, .wait
+	ret
+	ENDL
+.end::
+
+;a  = initial bg index of writes
+;hl = pointer to palette data
+;c  = number of words to write
+CGBInitBGPalettes::
+	or a, BCPSF_AUTOINC
+	ld [rBCPS], a
+
+.writeLoop:
+	ld a, [hli]
+	ld [rBCPD], a
+	ld a, [hli]
+	ld [rBCPD], a
+	dec c
+	jp nz, .writeLoop
+
+	ret
+
+;a  = initial bg index of writes
+;hl = pointer to palette data
+;c  = number of words to write
+CGBInitOBJPalettes::
+	or a, OCPSF_AUTOINC
+	ld [rOCPS], a
+
+.writeLoop:
+	ld a, [hli]
+	ld [rOCPD], a
+	ld a, [hli]
+	ld [rOCPD], a
+	dec c
+	jp nz, .writeLoop
+
+	ret
 
 SECTION "render", ROM0
 LCDOff::
@@ -25,19 +84,6 @@ LCDMemcpy::
     dec c
     jr nz, LCDMemcpy
     ret
-;works only after LCD was turned off
-; @param de Source
-; @param hl Destination
-; @param bc Length
-Memcpy::
-    ld a, [de]
-    ld [hli], a
-    inc de
-    dec bc
-    ld a, b
-    or c
-    jr nz, Memcpy
-    ret 
 
 ; @param b Value
 ; @param hl Destination
@@ -71,20 +117,6 @@ LCDMemsetV::
     jr nz, LCDMemsetV
     ret
     
-;works only after LCD was turned off
-; @param a Value
-; @param hl Destination
-; @param bc Length
-Memset::
-    ld d, a
-.BGClear:
-    ld a, d
-    ld [hli], a
-    dec bc
-    ld a, b
-    or a, c
-    jr nz, .BGClear
-    ret
 ; @param de Tiles
 ; @param hl Destination
 ; @param bc length

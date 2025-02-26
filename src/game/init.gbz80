@@ -1,12 +1,13 @@
 INCLUDE "hardware.inc"
+INCLUDE "cartridgeHeader.inc"
 
 SECTION "VBlankVector", ROM0[$40]
     jp VBlankInterrupt
 
 SECTION "Header", ROM0[$100]
+	nop
     jp EntryPoint
-    ds $150 - @, 0
-
+	HEADER
 SECTION "Init", ROM0
 EntryPoint:
     di
@@ -28,22 +29,22 @@ VBlankWait:
     ld bc, BGSIZE
     call copyTiles
     
-    ld a, 0
+    ld d, 0
     ld hl, _SCRN0
     ld bc, SCRN_VX_B * SCRN_VY_B
-    call Memset
+    call memset
 
     ;set DMA code
     ld de, OAMDMACode
     ld hl, StartOAMDMA
     ld bc, OAMDMACODELENGTH
-    call Memcpy
+    call memcpy
 
     ;clear oam
-    ld a, 0
+    ld d, 0
     ld hl, OAMMem
     ld bc, OAM_COUNT * sizeof_OAM_ATTRS
-    call Memset
+    call memset
 
 
 
@@ -88,8 +89,8 @@ SECTION "gfxData", ROM0
 
 TileData:
 INCBIN "sprite.2bpp"
-SPRITESIZE = @ - TileData
+DEF SPRITESIZE = @ - TileData
 bgData:
 INCBIN "bg.2bpp"
-BGSIZE = @ - bgData
-TILEDATASIZE = @ - TileData
+DEF BGSIZE = @ - bgData
+DEF TILEDATASIZE = @ - TileData

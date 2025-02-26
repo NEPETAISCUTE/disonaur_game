@@ -1,8 +1,15 @@
 ;*
-;* Gameboy Hardware definitions
+;* Game Boy Hardware definitions
+;* https://github.com/gbdev/hardware.inc
 ;*
 ;* Based on Jones' hardware.inc
 ;* And based on Carsten Sorensen's ideas.
+;*
+;* To the extent possible under law, the authors of this work have
+;* waived all copyright and related or neighboring rights to the work.
+;* See https://creativecommons.org/publicdomain/zero/1.0/ for details.
+;*
+;* SPDX-License-Identifier: CC0-1.0
 ;*
 ;* Rev 1.1 - 15-Jul-97 : Added define check
 ;* Rev 1.2 - 18-Jul-97 : Added revision check macro
@@ -34,6 +41,12 @@
 ;* Rev 4.6 - 15-Jun-22 : Added MBC3 registers and special values
 ;* Rev 4.7.0 - 27-Jun-22 : Added alternate names for some constants
 ;* Rev 4.7.1 - 05-Jul-22 : Added RPB_LED_ON constant
+;* Rev 4.8.0 - 25-Oct-22 : Changed background addressing constants (zlago)
+;* Rev 4.8.1 - 29-Apr-23 : Added rOPRI (rbong)
+;* Rev 4.9.0 - 24-Jun-23 : Added definitions for interrupt vectors (sukus)
+;* Rev 4.9.1 - 11-Sep-23 : Added repository link and CC0 waiver notice
+;* Rev 4.9.2 - 18-Aug-24 : Corrected CART_ROM_MBC5_BAT to CART_ROM_MBC5_RAM (DevEd)
+
 
 ; NOTE: REVISION NUMBER CHANGES MUST BE REFLECTED
 ; IN `rev_Check_hardware_inc` BELOW!
@@ -52,11 +65,12 @@ DEF HARDWARE_INC EQU 1
 ;           rev_Check_hardware_inc 4.1 (equivalent to 4.1.0)
 ;           rev_Check_hardware_inc 4 (equivalent to 4.0.0)
 MACRO rev_Check_hardware_inc
-    DEF CUR_VER equs "4,7,1"    ; ** UPDATE THIS LINE WHEN CHANGING THE REVISION NUMBER **
+    DEF CUR_VER equs "4,9,2"    ; ** UPDATE THIS LINE WHEN CHANGING THE REVISION NUMBER **
+
     DEF MIN_VER equs STRRPL("\1", ".", ",")
     DEF INTERNAL_CHK equs """MACRO ___internal
     IF \\1 != \\4 || \\2 < \\5 || (\\2 == \\5 && \\3 < \\6)
-    	FAIL "Version \\1.\\2.\\3 of 'hardware.inc' is incompatible with requested version \\4.\\5.\\6"
+        FAIL "Version \\1.\\2.\\3 of 'hardware.inc' is incompatible with requested version \\4.\\5.\\6"
     ENDC
 \nENDM"""
     INTERNAL_CHK
@@ -529,8 +543,8 @@ DEF LCDCF_WIN9800 EQU %00000000 ; Window Tile Map Display Select
 DEF LCDCF_WIN9C00 EQU %01000000 ; Window Tile Map Display Select
 DEF LCDCF_WINOFF  EQU %00000000 ; Window Display
 DEF LCDCF_WINON   EQU %00100000 ; Window Display
-DEF LCDCF_BG8800  EQU %00000000 ; BG & Window Tile Data Select
-DEF LCDCF_BG8000  EQU %00010000 ; BG & Window Tile Data Select
+DEF LCDCF_BLK21   EQU %00000000 ; BG & Window Tile Data Select
+DEF LCDCF_BLK01   EQU %00010000 ; BG & Window Tile Data Select
 DEF LCDCF_BG9800  EQU %00000000 ; BG Tile Map Display Select
 DEF LCDCF_BG9C00  EQU %00001000 ; BG Tile Map Display Select
 DEF LCDCF_OBJ8    EQU %00000000 ; OBJ Construction
@@ -543,7 +557,7 @@ DEF LCDCF_BGON    EQU %00000001 ; BG Display
 DEF LCDCB_ON      EQU 7 ; LCD Control Operation
 DEF LCDCB_WIN9C00 EQU 6 ; Window Tile Map Display Select
 DEF LCDCB_WINON   EQU 5 ; Window Display
-DEF LCDCB_BG8000  EQU 4 ; BG & Window Tile Data Select
+DEF LCDCB_BLKS    EQU 4 ; BG & Window Tile Data Select
 DEF LCDCB_BG9C00  EQU 3 ; BG Tile Map Display Select
 DEF LCDCB_OBJ16   EQU 2 ; OBJ Construction
 DEF LCDCB_OBJON   EQU 1 ; OBJ Display
@@ -793,6 +807,21 @@ DEF rOBPD EQU rOCPD
 
 
 ; --
+; -- OPRI ($FF6C)
+; -- Object Priority Mode (R/W)
+; -- CGB Only
+
+; --
+; -- Priority can be changed only from the boot ROM
+; --
+DEF rOPRI EQU $FF6C
+
+DEF OPRI_OAM   EQU 0 ; Prioritize objects by location in OAM (CGB Mode default)
+DEF OPRI_COORD EQU 1 ; Prioritize objects by x-coordinate (Non-CGB Mode default)
+
+
+
+; --
 ; -- SMBK/SVBK ($FF70)
 ; -- Select Main RAM Bank (R/W)
 ; --
@@ -887,13 +916,26 @@ DEF AUDHIGH_LENGTH_OFF  EQU %00000000
 ;***************************************************************************
 
 DEF BOOTUP_A_DMG    EQU $01 ; Dot Matrix Game
-DEF BOOTUP_A_CGB    EQU $11 ; Color GameBoy
-DEF BOOTUP_A_MGB    EQU $FF ; Mini GameBoy (Pocket GameBoy)
+DEF BOOTUP_A_CGB    EQU $11 ; Color Game Boy
+DEF BOOTUP_A_MGB    EQU $FF ; Mini Game Boy (Pocket Game Boy)
 
 ; if a=BOOTUP_A_CGB, bit 0 in b can be checked to determine if real CGB or
 ; other system running in GBC mode
 DEF BOOTUP_B_CGB    EQU %00000000
 DEF BOOTUP_B_AGB    EQU %00000001   ; GBA, GBA SP, Game Boy Player, or New GBA SP
+
+
+;***************************************************************************
+;*
+;* Interrupt vector addresses
+;*
+;***************************************************************************
+
+DEF INT_HANDLER_VBLANK EQU $0040
+DEF INT_HANDLER_STAT   EQU $0048
+DEF INT_HANDLER_TIMER  EQU $0050
+DEF INT_HANDLER_SERIAL EQU $0058
+DEF INT_HANDLER_JOYPAD EQU $0060
 
 
 ;***************************************************************************
@@ -904,7 +946,7 @@ DEF BOOTUP_B_AGB    EQU %00000001   ; GBA, GBA SP, Game Boy Player, or New GBA S
 
 ;*
 ;* Nintendo scrolling logo
-;* (Code won't work on a real GameBoy)
+;* (Code won't work on a real Game Boy)
 ;* (if next lines are altered.)
 MACRO NINTENDO_LOGO
     DB  $CE,$ED,$66,$66,$CC,$0D,$00,$0B,$03,$73,$00,$83,$00,$0C,$00,$0D
@@ -912,12 +954,12 @@ MACRO NINTENDO_LOGO
     DB  $BB,$BB,$67,$63,$6E,$0E,$EC,$CC,$DD,$DC,$99,$9F,$BB,$B9,$33,$3E
 ENDM
 
-; $0143 Color GameBoy compatibility code
+; $0143 Color Game Boy compatibility code
 DEF CART_COMPATIBLE_DMG     EQU $00
 DEF CART_COMPATIBLE_DMG_GBC EQU $80
 DEF CART_COMPATIBLE_GBC     EQU $C0
 
-; $0146 GameBoy/Super GameBoy indicator
+; $0146 Game Boy/Super Game Boy indicator
 DEF CART_INDICATOR_GB       EQU $00
 DEF CART_INDICATOR_SGB      EQU $03
 
@@ -939,7 +981,7 @@ DEF CART_ROM_MBC3                EQU $11
 DEF CART_ROM_MBC3_RAM            EQU $12
 DEF CART_ROM_MBC3_RAM_BAT        EQU $13
 DEF CART_ROM_MBC5                EQU $19
-DEF CART_ROM_MBC5_BAT            EQU $1A
+DEF CART_ROM_MBC5_RAM            EQU $1A
 DEF CART_ROM_MBC5_RAM_BAT        EQU $1B
 DEF CART_ROM_MBC5_RUMBLE         EQU $1C
 DEF CART_ROM_MBC5_RAM_RUMBLE     EQU $1D
@@ -1064,6 +1106,9 @@ DEF _VRAM8000  EQU _VRAM
 DEF _VRAM8800  EQU _VRAM+$800
 DEF _VRAM9000  EQU _VRAM+$1000
 DEF CART_SRAM_2KB   EQU 1 ; 1 incomplete bank
+DEF LCDCF_BG8800  EQU %00000000 ; BG & Window Tile Data Select
+DEF LCDCF_BG8000  EQU %00010000 ; BG & Window Tile Data Select
+DEF LCDCB_BG8000  EQU 4 ; BG & Window Tile Data Select
 
 
     ENDC ;HARDWARE_INC

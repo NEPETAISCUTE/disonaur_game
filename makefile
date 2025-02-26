@@ -24,7 +24,7 @@ endif
 MAKEFLAGS += --no-print-directory
 PROJ    := runman
 TARGET  := build/$(PROJ).gb
-EXT     := asm
+EXT     := gbz80
 COMP    := rgbasm
 LINK    := rgblink
 PATCH   := rgbfix
@@ -46,7 +46,7 @@ BPP_FILES := $(patsubst $(TILES_DIR)/%.png,$(TILES_DIR)/%.2bpp,$(PNG_FILES))
 
 # ========== Everything flags related ==========
 
-O_FLAGS     := -Wall -Wextra -i include -i assets -h
+O_FLAGS     := -Wall -Wextra -i include -i assets
 PATCH_FLAGS := -v -p 0xFF
 LINK_FLAGS  :=
 
@@ -67,7 +67,7 @@ $(TARGET):$(OBJ_FILES)
 
 objects: $(OBJ_FILES)
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.$(EXT)
-	$(COMP) -L $< -o $@ $(O_FLAGS)
+	$(COMP) -o $@ $(O_FLAGS) $^
 
 # PNG converting
 

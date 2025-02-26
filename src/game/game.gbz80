@@ -1,13 +1,13 @@
 INCLUDE "hardware.inc"
 INCLUDE "spriteAnim.inc"
 
-GROUND_HEIGHT = $0E
+DEF GROUND_HEIGHT = $0E
 
 SECTION "MainGameRAM", WRAM0
 groundMap: ds SCRN_VX_B
 mapPointer: ds 1
 genPointer: ds 1
-isJumping: ds 1
+isGrounded: ds 1
 
 playerPosX: ds 2
 playerPosY: ds 2
@@ -29,8 +29,107 @@ game::
 .skipFirstFrameLoading:
 
     ld a, [new_keys]
+    cp PADF_A
+    jr z, .skipInitiateJump
 
+    ld a, 0
+    ld [playerVelY], a
+    ld [isGrounded], a
+
+.skipInitiateJump:
+    ld a, [isGrounded]
+    and 1
+    jr nz, .skipProlongateJump
+    ld a, [cur_keys]
+    cp PADF_A
+    jr z, .skipProlongateJump
+
+    ld a, -1
+    ld [playerAccelY+1], a
+.skipProlongateJump:
+    
     call handleAnim
+
+    ld a, [playerVelX]
+    ld b, a
+    ld a, [playerVelX+1]
+    ld c, a
+    ld a, [playerAccelX]
+    ld h, a
+    ld a, [playerAccelX+1]
+    ld l, a
+    add hl, bc
+    ld a, h
+    ld [playerVelX], a
+    ld a, l
+    ld [playerVelX+1], a
+
+    ld a, 0
+    ld [playerAccelX], a
+
+    ld a, [playerVelY]
+    ld b, a
+    ld a, [playerVelY+1]
+    ld c, a
+    ld a, [playerAccelY]
+    ld h, a
+    ld a, [playerAccelY+1]
+    ld l, a
+    add hl, bc
+    ld a, h
+    ld [playerVelY], a
+    ld a, l
+    ld [playerVelY+1], a
+
+    ld a, 0
+    ld [playerAccelX], a
+
+    ld a, [playerPosX]
+    ld b, a
+    ld a, [playerPosX+1]
+    ld c, a
+    ld a, [playerVelX]
+    ld h, a
+    ld a, [playerVelX+1]
+    ld l, a
+    add hl, bc
+    ld h, a
+    ld [playerPosX], a
+    ld l, a
+    ld [playerPosX+1], a
+
+    ld a, [playerPosY]
+    ld b, a
+    ld a, [playerPosY+1]
+    ld c, a
+    ld a, [playerVelY]
+    ld h, a
+    ld a, [playerVelY+1]
+    ld l, a
+    add hl, bc
+    ld h, a
+    ld [playerPosY], a
+    ld l, a
+    ld [playerPosY+1], a
+
+    ld h, b
+    ld a, c
+    ld bc, 32
+    sub a, c
+    ld l, a
+    ld a, h
+    sub a, b
+    ld [playerVelX], a
+    ld a, l
+    ld [playerVelX+1], a
+
+    ;ld [playerVelX], a
+    ;ld [playerVelX], a
+
+    ld a, [playerPosX]
+    ld [playerX], a
+    ld a, [playerPosY]
+    ld [playerY], a 
 
     ret
 
@@ -38,23 +137,22 @@ game::
 initFrame:
     call LCDOff
     
-    ld a, 0
+    ld d, 0
     ld hl, _SCRN0
     ld bc, SCRN_VX_B * (SCRN_Y_B-4)
-    call Memset
+    call memset
 
-    ld a, $01
+    ld d, 1
     ld hl, _SCRN0 + (SCRN_VX_B * $0E)
     ld bc, SCRN_VX_B
-    call Memset
+    call memset
 
-    ld d, $02
+    ld d, 2
     ld hl, _SCRN0 + (SCRN_VX_B * $0F)
     ld e, 0
 .groundLoop:
-    ld a, d
     ld bc, SCRN_VX_B
-    call Memset
+    call memset
     ld a, d
     ld d, 0
     add hl, de
@@ -96,7 +194,7 @@ handleAnim:
     jr c, .setJumping
     jr nz, .setFalling
 
-    ld a, [playerAccelX]
+    ld a, [playerVelX]
     cp 0
     jr z, .setIdle
 

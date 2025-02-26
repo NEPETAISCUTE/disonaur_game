@@ -1,0 +1,31 @@
+
+
+SECTION "MemoryFunctions", ROM0
+
+
+;scrambles A
+;de: source
+;hl: destination
+;bc: count
+memcpy::
+	ld a, [de]
+	ld [hli], a
+	inc de
+	dec bc
+	ld a, b
+	or a, c
+	jp nz, memcpy
+	ret
+
+;writes A into hl C times
+;d: data
+;hl: base address
+;bc: byte count
+memset::
+	ld a, d
+	ld [hli], a
+	dec bc
+	ld a, b
+	or a, c
+	jp nz, memset
+	ret
