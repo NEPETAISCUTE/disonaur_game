@@ -2,15 +2,8 @@ INCLUDE "hardware.inc"
 SECTION "VBlankRAM", WRAM0[$C400]
 OAMMem:: ds OAM_COUNT * sizeof_OAM_ATTRS
 
-DEF playerY = OAMMem
-DEF playerX = OAMMem+1
-DEF playerTile = OAMMem+2
-DEF playerAttributes = OAMMem+3
-export playerX
-export playerY
-export playerTile
-export playerAttributes
-
+SECTION "VBlankVector", ROM0[INT_HANDLER_VBLANK]
+    jp VBlankInterrupt
 SECTION "VBlank", ROM0
 VBlankInterrupt::
     push af
@@ -21,23 +14,11 @@ VBlankInterrupt::
     ld a, [backgroundX]
     ld [rSCX], a
     
-    call StartOAMDMA
+	ld a, HIGH(oamShadowStart)
+    call OAMDMAHandler
 
     pop hl
     pop de
     pop bc
     pop af
     reti
-
-OAMDMACode::
-LOAD "OAMDMA", HRAM
-StartOAMDMA::
-    ld a, HIGH(OAMMem)
-    ldh [rDMA], a  
-    ld a, OAM_COUNT        ; delay for a total of 4×40 = 160 cycles
-.wait::
-    dec a
-    jr nz, .wait
-    ret 
-DEF OAMDMACODELENGTH = @ - StartOAMDMA
-EXPORT OAMDMACODELENGTH

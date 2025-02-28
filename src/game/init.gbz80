@@ -1,9 +1,6 @@
 INCLUDE "hardware.inc"
 INCLUDE "cartridgeHeader.inc"
 
-SECTION "VBlankVector", ROM0[$40]
-    jp VBlankInterrupt
-
 SECTION "Header", ROM0[$100]
 	nop
     jp EntryPoint
@@ -19,68 +16,71 @@ VBlankWait:
     ld a, LCDCF_OFF ;turn off screen
     ld [rLCDC], a
 
-    ld de, TileData
-    ld hl, _VRAM8000
+    ld de, spriteData
+    ld hl, tileBlock0
     ld bc, SPRITESIZE
-    call copyTiles
+    call copyTiles ;copy sprite tiles
 
     ld de, bgData
-    ld hl, _VRAM9000
+    ld hl, tileBlock2
     ld bc, BGSIZE
-    call copyTiles
-    
-    ld d, 0
-    ld hl, _SCRN0
-    ld bc, SCRN_VX_B * SCRN_VY_B
-    call memset
+    call copyTiles ;copy background tiles
 
-    ;set DMA code
-    ld de, OAMDMACode
-    ld hl, StartOAMDMA
-    ld bc, OAMDMACODELENGTH
-    call memcpy
+    ld d, 0
+    ld hl, tileMap0
+    ld bc, SCRN_VX_B * SCRN_VY_B
+    call memset ;zerofill the background
 
     ;clear oam
     ld d, 0
-    ld hl, OAMMem
+    ld hl, oamShadowStart
     ld bc, OAM_COUNT * sizeof_OAM_ATTRS
-    call memset
+    call memset ;zerofill shadowOam to avoid weird glitch sprites showing up
 
+    ;set DMA code
+    ld de, OAMDMAHandlerCode
+    ld hl, OAMDMAHandler
+    ld bc, OAMDMAHandlerCode.end - OAMDMAHandlerCode
+    call memcpy  ;copying the OAM DMA routine to HRAM so that i can call it whenever i want (especially in vblank)
 
-
-    ld hl, _OAMRAM
-    ld bc, OAM_COUNT * sizeof_OAM_ATTRS
-OAMClear:
-    ld a, 0
-    ld [hli], a
-    dec bc
-    ld a, b
-    or a, c
-    jr nz, OAMClear
+	ld a, HIGH(oamShadowStart)
+    call OAMDMAHandler ;oam DMA of oamShadow to avoid garbage data being in OAM when 
 
     ld a, LCDCF_ON | LCDCF_BGON | LCDCF_OBJON
     ld [rLCDC], a
+
     ld a, %11100100
     ld [rBGP], a
-    xor %11111111
+
+    xor %11111111 ;have the opposite for Objects
     ld [rOBP0], a
 
     ld a, IEF_VBLANK ;let's enable VBlank interrupt
     ld [rIE], a
 
-    ld a, 0
-    ld [gamestate], a
-    ld [firstStateFrame], a
-    ld [introFrameCnt], a
-    ld [playerAnim], a
-    ld [backgroundX], a
+    ld a, 0 ;initialize a few values
+    ld [gamestate], a ;title screen game state
+    ld [firstStateFrame], a ;flag to check whether the first frame has been initialized or not
+    ld [introFrameCnt], a ;frame counter for intro, used for random seed
+    ld [playerAnim], a ;player anim state
+    ld [backgroundX], a ;scrolling, to avoid weird effects
 
-    ld hl, OAMMem
-    ld c, OAM_COUNT
-.clearOAM:
-    ld [hli], a
-    dec c
-    jr nz, .clearOAM
+	ld [lastInput], a ;input handling, to avoid weird pad signals to be read during the first frame potentially
+	ld [currentInput], a
+	ld [pressedInput], a
+	ld [releasedInput], a
+
+	ld [mainFrameCnt], a
+	ld [mainFrameCnt+1], a
+
+	ld [playerPosX], a
+	ld [playerPosX+1], a
+	ld [playerVelX], a
+	ld [playerVelX+1], a
+	ld [playerPosY], a
+	ld [playerPosY+1], a
+	ld [playerVelY], a
+	ld [playerVelY+1], a
 
     ei
     jp main
@@ -88,6 +88,7 @@ OAMClear:
 SECTION "gfxData", ROM0
 
 TileData:
+spriteData:
 INCBIN "sprite.2bpp"
 DEF SPRITESIZE = @ - TileData
 bgData:

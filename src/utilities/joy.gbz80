@@ -1,0 +1,52 @@
+INCLUDE "include/hardware.inc"
+
+SECTION "JoyReaderMemory", WRAM0
+
+lastInput:: ds 1
+currentInput:: ds 1
+pressedInput:: ds 1
+releasedInput:: ds 1
+
+SECTION "JoyReader", ROM0
+
+;updates the currentInput field
+pollJoy:
+	ld a, P1F_GET_DPAD ;DPAD
+	ld [rP1], a
+	ld a, [rP1] ;buffer using 2 reads as per nintendo documentation
+	ld a, [rP1]
+	swap a
+	and a, %11110000 ;move it to the high part
+	ld b, a
+	ld a, P1F_GET_BTN ;buttons
+	ld [rP1], a
+	ld a, [rP1] ;buffer using 6 reads as per nintendo documentation
+	ld a, [rP1]
+	ld a, [rP1]
+	ld a, [rP1]
+	ld a, [rP1]
+	ld a, [rP1]
+	and a, %00001111 
+	or a, b ;fuse the high and low part 
+	xor a, %11111111 ;xor it to have a release = low signal instead of the inverted one
+	ld [currentInput], a 
+	ret
+	
+;updates all fields according to current and latest input, calls pollJoy
+getInputData::
+	ld a, [currentInput]
+	ld [lastInput], a
+	call pollJoy
+	ld a, [lastInput]
+	ld b, a
+	ld a, [currentInput]
+	xor a, %11111111
+	and a, b
+	ld [releasedInput], a
+	ld a, [currentInput]
+	ld b, a
+	ld a, [lastInput]
+	xor a, %11111111
+	and a, b
+	ld [pressedInput], a
+	ret

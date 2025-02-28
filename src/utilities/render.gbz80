@@ -1,5 +1,25 @@
 INCLUDE "hardware.inc"
 
+SECTION "VRAMLayout", VRAM[$8000]
+
+DEF TILE_BLOCK_SIZE EQU $800
+export TILE_BLOCK_SIZE
+
+tileBlock0::
+	ds TILE_BLOCK_SIZE
+tileBlock1::
+	ds TILE_BLOCK_SIZE
+tileBlock2::
+	ds TILE_BLOCK_SIZE
+
+DEF TILE_MAP_SIZE EQU $400
+export TILE_MAP_SIZE
+
+tileMap0::
+	ds TILE_MAP_SIZE
+tileMap1::
+	ds TILE_MAP_SIZE
+
 SECTION "VideoLibMemory", HRAM
 
 hDrawBuffer:: ds 1
@@ -13,6 +33,11 @@ scrollBuffer1:
 SECTION "VideoLibMemoryBuf2", WRAM0[$C200]
 scrollBuffer2:
 	ds SCRN_Y * 2
+
+SECTION "OAMShadow", WRAM0, ALIGN[8]
+
+oamShadowStart::
+ds OAM_COUNT * sizeof_OAM_ATTRS
 
 SECTION "videoLib", ROM0
 

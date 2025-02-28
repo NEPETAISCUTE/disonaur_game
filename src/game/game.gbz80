@@ -1,4 +1,5 @@
 INCLUDE "hardware.inc"
+INCLUDE "player.inc"
 INCLUDE "spriteAnim.inc"
 
 DEF GROUND_HEIGHT = $0E
@@ -9,12 +10,12 @@ mapPointer: ds 1
 genPointer: ds 1
 isGrounded: ds 1
 
-playerPosX: ds 2
-playerPosY: ds 2
-playerVelX: ds 2
-playerVelY: ds 2
-playerAccelX: ds 1
-playerAccelY: ds 1
+playerPosX:: ds 2
+playerPosY:: ds 2
+playerVelX:: ds 2
+playerVelY:: ds 2
+playerAccelX:: ds 1
+playerAccelY:: ds 1
 
 playerAnim:: ds 1
 
@@ -28,7 +29,7 @@ game::
 
 .skipFirstFrameLoading:
 
-    ld a, [new_keys]
+    ld a, [pressedInput]
     cp PADF_A
     jr z, .skipInitiateJump
 
@@ -40,7 +41,7 @@ game::
     ld a, [isGrounded]
     and 1
     jr nz, .skipProlongateJump
-    ld a, [cur_keys]
+    ld a, [currentInput]
     cp PADF_A
     jr z, .skipProlongateJump
 

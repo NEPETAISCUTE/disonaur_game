@@ -13,7 +13,7 @@ firstStateFrame:: ds 1
 backgroundX:: ds 1
 SECTION "main", ROM0
 main::
-    call read_pad
+    call getInputData
     ld a, [gamestate]
     cp GSTATE_INTRO
     jr nz, .skipIntro
@@ -31,13 +31,10 @@ main::
 .endMain:
 
     ld a, [mainFrameCnt]
-    ld b, a
+    add a, 1
+	ld [mainFrameCnt], a
     ld a, [mainFrameCnt+1]
-    ld c, a
-    inc bc
-    ld a, b
-    ld [mainFrameCnt], a
-    ld a, c
+    adc a, 0
     ld [mainFrameCnt+1], a
 
     halt 

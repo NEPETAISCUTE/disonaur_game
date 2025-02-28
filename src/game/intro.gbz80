@@ -1,4 +1,5 @@
 INCLUDE "hardware.inc"
+INCLUDE "player.inc"
 
 SECTION "introData", ROM0
 title:
@@ -25,7 +26,7 @@ SECTION "intro", ROM0
 intro::
     ld a, [firstStateFrame]
     and a
-    jr nz, .endFrameSetup
+    jr nz, .endFrameSetup ;if it is set to 0, we know we have to initialize some stuff
 
     call initFrame
 
@@ -36,7 +37,7 @@ intro::
     ld hl, introFrameCnt
     inc [hl]
 
-    ld a, [new_keys]
+    ld a, [pressedInput]
     and PADF_START
     jr z, .leave
     
@@ -55,7 +56,7 @@ intro::
 
 ;takes care of setting up the display on the first frame, basically prepares tiles that needs to be there right away in order to simplify next rendering frames
 initFrame:
-    call LCDOff
+    call LCDOff ;turn off LCD to load tile data for the main screen
 
     ld de, title
     ld hl, TITLEPOS
@@ -82,11 +83,11 @@ initFrame:
     jr nz, .groundLoop
 
     ld a, $78
-    ld [playerY], a
+    ld [oamShadowStart], a
     ld a, $50
-    ld [playerX], a
+    ld [oamShadowStart + 1], a
     ld a, $11
-    ld [playerTile], a
+    ld [oamShadowStart + 2], a
 
     ld a, LCDCF_ON | LCDCF_BGON | LCDCF_OBJON
     ld [rLCDC], a
