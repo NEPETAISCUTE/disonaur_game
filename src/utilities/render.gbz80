@@ -110,20 +110,20 @@ LCDMemcpy::
     jr nz, LCDMemcpy
     ret
 
-; @param b Value
+; @param d Value
 ; @param hl Destination
 ; @param c Length
 LCDMemset::
     ldh a, [rSTAT]
     and STATF_BUSY
     jr nz, LCDMemset
-    ld a, b
+    ld a, d
     ld [hli], a
     dec c
     jr nz, LCDMemset
     ret
 
-; @param b Value
+; @param d Value
 ; @param hl Destination
 ; @param c Length
 ; a trashed
@@ -131,7 +131,7 @@ LCDMemsetV::
     ldh a, [rSTAT]
     and STATF_BUSY
     jr nz, LCDMemsetV
-    ld [hl], b
+    ld [hl], d
     ld a, SCRN_VX_B
     add a, l
     ld l, a

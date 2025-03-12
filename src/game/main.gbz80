@@ -37,5 +37,5 @@ main::
     adc a, 0
     ld [mainFrameCnt+1], a
 
-    halt 
+    halt    ;wait for interrupt here
     jr main

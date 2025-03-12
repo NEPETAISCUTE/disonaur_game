@@ -106,7 +106,7 @@ handleBlinkingText:
     cp TEXTTIMING
     jr nz, .endDraw
 
-    ld e, 0
+    ld d, 0
     ld hl, STARTPOS
     ld c, STARTSIZE
     call LCDMemset

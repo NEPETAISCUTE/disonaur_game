@@ -3,6 +3,12 @@ INCLUDE "player.inc"
 INCLUDE "spriteAnim.inc"
 
 DEF GROUND_HEIGHT = $0E
+DEF GROUND_HEIGHT_PX = $70
+
+DEF JUMP_INITIAL_ACCEL = -2.0q8
+DEF JUMP_PROLONG_ACCEL = -0.35q8
+DEF GRAVITY_ACCEL = 0.4q8
+DEF VELDECAY_ADD = 0.1q8
 
 SECTION "MainGameRAM", WRAM0
 groundMap: ds SCRN_VX_B
@@ -14,212 +20,266 @@ playerPosX:: ds 2
 playerPosY:: ds 2
 playerVelX:: ds 2
 playerVelY:: ds 2
-playerAccelX:: ds 1
-playerAccelY:: ds 1
+playerAccelX:: ds 2
+playerAccelY:: ds 2
 
 playerAnim:: ds 1
 
 SECTION "MainGame", ROM0
 game::
     ld a, [firstStateFrame]
-    and a
+    or a, 0 ;if the flag is nonzero, we already initialized everything
     jr nz, .skipFirstFrameLoading
 
     call initFrame
 
 .skipFirstFrameLoading:
+	ld a, [isGrounded]
+	cp a, 0
+	jr z, .skipInitiateJump
 
     ld a, [pressedInput]
-    cp PADF_A
-    jr z, .skipInitiateJump
-
-    ld a, 0
-    ld [playerVelY], a
-    ld [isGrounded], a
-
-.skipInitiateJump:
-    ld a, [isGrounded]
-    and 1
-    jr nz, .skipProlongateJump
-    ld a, [currentInput]
-    cp PADF_A
+    and a, PADF_A
     jr z, .skipProlongateJump
 
-    ld a, -1
-    ld [playerAccelY+1], a
+	ld a, HIGH(JUMP_INITIAL_ACCEL)
+    ld [playerAccelY], a
+	ld a, LOW(JUMP_INITIAL_ACCEL)
+	ld [playerAccelY+1], a
+    ld a, 0
+    ld [isGrounded], a
+	ld [playerVelY], a
+	jr .skipProlongateJump
+
+.skipInitiateJump:
+    ld a, [currentInput]
+    and a, PADF_A
+    jr z, .skipProlongateJump
+	ld a, [playerVelY]
+	and $80
+	jr z, .skipProlongateJump
+
+    ld a, HIGH(JUMP_PROLONG_ACCEL)
+    ld [playerAccelY], a ;basically corresponds to -32 subpixels and 0 pixels
+	ld a, LOW(JUMP_PROLONG_ACCEL)
+	ld [playerAccelY+1], a
 .skipProlongateJump:
+
+	ld a, [isGrounded]
+	cp a, 0
+	jr nz, .skipMidAirHandling
+
+	ld a, [playerAccelY+1]
+	add a, LOW(GRAVITY_ACCEL)
+	ld [playerAccelY+1], a
+	ld a, [playerAccelY]
+	adc a, HIGH(GRAVITY_ACCEL)
+	ld [playerAccelY], a
+
+	ld a, [playerPosY]
+	cp a, GROUND_HEIGHT_PX + 8 + 1 ; add one to the height of the ground + the height of the sprite, since we're using carry as a flag here for detecting clipping through the ground
+	jr c, .skipSetPlayerPosY
+
+	ld a, GROUND_HEIGHT_PX + 8 ;height of ground + height of sprite since it's the position of the top left corner of the sprite that's defined here
+	ld [playerPosY], a
+	ld a, 0
+	ld [playerPosY+1], a
+
+	ld [playerVelY], a
+	ld [playerVelY+1], a
+
+	ld [playerAccelY], a
+	ld [playerAccelY+1], a
+	
+	ld a, 1
+	ld [isGrounded], a
+
+.skipSetPlayerPosY:
+
+.skipMidAirHandling:
     
+    ld a, [playerVelX+1]
+	ld b, a
+    ld a, [playerAccelX+1]
+	add a, b
+	ld [playerVelX+1], a
+
+    ld a, [playerVelX]
+	ld b, a
+    ld a, [playerAccelX]
+    adc a, b
+	ld [playerVelX], a
+
+    ld a, 0
+    ld [playerAccelX], a
+    ld [playerAccelX+1], a
+
+    ld a, [playerVelY+1]
+    ld b, a
+    ld a, [playerAccelY+1]
+	add a, b
+	ld [playerVelY+1], a
+
+    ld a, [playerVelY]
+    ld b, a
+    ld a, [playerAccelY]
+    adc a, b
+	ld [playerVelY], a
+
+    ld a, 0
+    ld [playerAccelY], a
+    ld [playerAccelY+1], a
+
+    ld a, [playerPosX+1]
+	ld b, a
+    ld a, [playerVelX+1]
+	add a, b
+	ld [playerPosX+1], a
+
+    ld a, [playerPosX]
+	ld b, a
+    ld a, [playerVelX]
+	adc a, b
+	ld [playerPosX], a
+
+    ld a, [playerPosY+1]
+	ld b, a
+    ld a, [playerVelY+1]
+	add a, b
+	ld [playerPosY+1], a
+
+    ld a, [playerPosY]
+    ld b, a
+    ld a, [playerVelY]
+	adc a, b
+	ld [playerPosY], a
+
+	ld a, [playerVelX+1]
+	ld b, a
+	ld a, [playerVelX]
+	or a, b
+	jr z, .skipVelDecayX
+
+	ld a, [playerVelX]
+	and a, $80
+	jr nz, .handleNegVelDecayX
+
+.handlePosVelDecayX:
+	;ld a, [playerVelX+1]
+	;add a, LOW(VELDECAY_ADD)
+	;ld [playerVelX+1], a
+
+    ;ld a, [playerVelX]
+	;adc a, HIGH(VELDECAY_ADD)
+    ;ld [playerVelX], a
+	jr .checkForVelOverflowX
+
+.handleNegVelDecayX:
+	;ld a, [playerVelX+1]
+	;add a, LOW(-VELDECAY_ADD)
+	;ld [playerVelX+1], a
+
+	;ld a, [playerVelX]
+	;adc a, HIGH(-VELDECAY_ADD)
+	;ld [playerVelX], a
+
+.checkForVelOverflowX:
+	;jr nc, .skipVelDecayX
+	;ld a, 0
+	;ld [playerVelX+1], a
+	;ld [playerVelX], a
+
+.skipVelDecayX:
+	
+	ld a, [playerVelY+1]
+	ld b, a
+	ld a, [playerVelY]
+	or a, b
+	jr z, .skipVelDecayY
+	
+	ld a, [playerVelY]
+	and a, $80
+	jr nz, .handleNegVelDecayY
+
+.handlePosVelDecayY:
+	;ld a, [playerVelY+1]
+	;add a, LOW(VELDECAY_ADD)
+	;ld [playerVelY+1], a
+
+    ;ld a, [playerVelY]
+	;adc a, HIGH(VELDECAY_ADD)
+    ;ld [playerVelY], a
+	jr .checkForVelOverflowY
+
+.handleNegVelDecayY:
+	;ld a, [playerVelY+1]
+	;add a, HIGH(-VELDECAY_ADD)
+	;ld [playerVelY+1], a
+
+	;ld a, [playerVelY]
+	;adc a, HIGH(-VELDECAY_ADD)
+	;ld [playerVelY], a
+
+.checkForVelOverflowY:
+	;jr nc, .skipVelDecayY
+	;ld a, 0
+	;ld [playerVelY+1], a
+	;ld [playerVelY], a
+
+.skipVelDecayY:
+
     call handleAnim
 
-    ld a, [playerVelX]
-    ld b, a
-    ld a, [playerVelX+1]
-    ld c, a
-    ld a, [playerAccelX]
-    ld h, a
-    ld a, [playerAccelX+1]
-    ld l, a
-    add hl, bc
-    ld a, h
-    ld [playerVelX], a
-    ld a, l
-    ld [playerVelX+1], a
-
-    ld a, 0
-    ld [playerAccelX], a
-
-    ld a, [playerVelY]
-    ld b, a
-    ld a, [playerVelY+1]
-    ld c, a
-    ld a, [playerAccelY]
-    ld h, a
-    ld a, [playerAccelY+1]
-    ld l, a
-    add hl, bc
-    ld a, h
-    ld [playerVelY], a
-    ld a, l
-    ld [playerVelY+1], a
-
-    ld a, 0
-    ld [playerAccelX], a
-
-    ld a, [playerPosX]
-    ld b, a
-    ld a, [playerPosX+1]
-    ld c, a
-    ld a, [playerVelX]
-    ld h, a
-    ld a, [playerVelX+1]
-    ld l, a
-    add hl, bc
-    ld h, a
-    ld [playerPosX], a
-    ld l, a
-    ld [playerPosX+1], a
-
-    ld a, [playerPosY]
-    ld b, a
-    ld a, [playerPosY+1]
-    ld c, a
-    ld a, [playerVelY]
-    ld h, a
-    ld a, [playerVelY+1]
-    ld l, a
-    add hl, bc
-    ld h, a
-    ld [playerPosY], a
-    ld l, a
-    ld [playerPosY+1], a
-
-    ld h, b
-    ld a, c
-    ld bc, 32
-    sub a, c
-    ld l, a
-    ld a, h
-    sub a, b
-    ld [playerVelX], a
-    ld a, l
-    ld [playerVelX+1], a
-
-    ;ld [playerVelX], a
-    ;ld [playerVelX], a
-
-    ld a, [playerPosX]
-    ld [playerX], a
-    ld a, [playerPosY]
-    ld [playerY], a 
-
-    ret
-
-
-initFrame:
-    call LCDOff
-    
-    ld d, 0
-    ld hl, _SCRN0
-    ld bc, SCRN_VX_B * (SCRN_Y_B-4)
-    call memset
-
-    ld d, 1
-    ld hl, _SCRN0 + (SCRN_VX_B * $0E)
-    ld bc, SCRN_VX_B
-    call memset
-
-    ld d, 2
-    ld hl, _SCRN0 + (SCRN_VX_B * $0F)
-    ld e, 0
-.groundLoop:
-    ld bc, SCRN_VX_B
-    call memset
-    ld a, d
-    ld d, 0
-    add hl, de
-    ld d, a
-    ld a, $40
-    cp l
-    jr nz, .groundLoop
-
-    ld a, LCDCF_ON | LCDCF_BGON | LCDCF_OBJON
-    ld [rLCDC], a
-
-
-    ld a, $00
-    ld [playerPosX], a
-    ld [playerPosY], a
-    ld [playerVelX], a
-    ld [playerVelY], a
-    ld [playerAccelX], a
-    ld [playerAccelY], a
-
-    ld a, $20
-    ld [playerPosX+1], a
-    ld a, $78
-    ld [playerPosY+1], a
-
-    ld a, SCRN_VX_B-SCRN_X_B
-    ld [mapPointer], a
-    ld [genPointer], a
-
-    ld a, 1
-    ld [firstStateFrame], a
-    ld [playerTile], a
+	ld a, [playerPosX]
+	ld [playerX], a
+	ld a, [playerPosY]
+	ld [playerY], a
 
     ret
 
 handleAnim:
     ld a, [playerVelY]
-    cp 0
-    jr c, .setJumping
-    jr nz, .setFalling
+    and a, $80 ;is VelY negative
+	;if it is, the player is moving upward, set the animation to be jumping towards the top of the screen
+    jr nz, .setJumping 
+	cp a, 0
+	;if it's nonzero it's positive, falling animation since the player moves towards the bottom of the screen
+    jr nz, .setFalling 
 
-    ld a, [playerVelX]
-    cp 0
-    jr z, .setIdle
+	ld a, [playerVelY + 1]
+	cp a, 0
+	;same as for the nonzero case of before, we gotta check for the decimal part
+	jr nz, .setFalling 
 
-    ld a, [playerAnim]
-    cp 6
+	;dunno why the hell i put that here
+	ld a, [playerTile]
+	cp a, 6 ;max index + 1 for the running anim
+	jr c, .skipSetPlayerTile
+	ld a, 1 ;min index for the running anim
+	ld [playerTile], a
+	;-----------------------------------
+.skipSetPlayerTile:
+    ld a, [playerAnim] ;variable name is ambiguous, it's a frame timer before animation update for running anim
+    cp a, 6 ;every 6 frames
     jr nz, .skipAnimCnt
     ld a, 0
-    ld [playerAnim], a
-    ld hl, OAMMem+2
-    inc [hl]
-    ld a, 5
-    cp [hl]
+    ld [playerAnim], a ;reset frame counter
+    ld hl, playerTile
+    inc [hl] ;increment the player tile ID
+    ld a, [playerTile] ;if we reach the end of the animation
+	cp a, 5
     jr nz, .skipAnimCnt
-    ld a, 1
-    ld [hl], a
+    ld a, 1 ;we reset it to the start of the animation
+    ld [playerTile], a
 .skipAnimCnt:
     ld hl, playerAnim
-    inc [hl]
+    inc [hl] ;increment the counter
     ret
 
-.setIdle:
-    ld a, ANIM_PLAYER_IDLE
-    ld [playerTile], a
-    ret
+;.setIdle:
+    ;ld a, ANIM_PLAYER_IDLE
+    ;ld [playerTile], a
+    ;ret
 
 .setJumping:
     ld a, ANIM_PLAYER_JUMP
@@ -231,8 +291,61 @@ handleAnim:
     ld [playerTile], a
     ret
 
-PUSHS
-SECTION UNION "mapGenRam", HRAM
-    counter: ds 1
-POPS
+initFrame:
+    call LCDOff ;turn off screen for setup
+    
+    ld d, 0
+    ld hl, _SCRN0
+    ld bc, SCRN_VX_B * (SCRN_Y_B-4)
+    call memset ;clear up the title notably
 
+    ld d, 1
+    ld hl, _SCRN0 + (SCRN_VX_B * $0E)
+    ld bc, SCRN_VX_B
+    call memset ;add grass tiles
+
+    ld d, 2
+    ld hl, _SCRN0 + (SCRN_VX_B * $0F)
+    ld e, 0
+.groundLoop:
+    ld bc, SCRN_VX_B
+    call memset   ;repeat memsets to add the ground tiles under grass
+    ld a, d
+    ld d, 0
+    add hl, de
+    ld d, a
+    ld a, $40
+    cp l
+    jr nz, .groundLoop
+
+    ld a, LCDCF_ON | LCDCF_BGON | LCDCF_OBJON
+    ld [rLCDC], a ;turn back on the LCD
+
+
+    ld a, $20
+    ld [playerPosX], a
+    ld a, $78
+    ld [playerPosY], a
+
+    ld a, $00
+    ld [playerPosX+1], a
+    ld [playerPosY+1], a
+    ld [playerVelX], a
+    ld [playerVelX+1], a
+    ld [playerVelY], a
+    ld [playerVelY+1], a
+    ld [playerAccelX], a
+    ld [playerAccelX+1], a
+    ld [playerAccelY], a
+    ld [playerAccelY+1], a
+
+
+    ld a, SCRN_VX_B-SCRN_X_B
+    ld [mapPointer], a
+    ld [genPointer], a
+
+    ld a, 1
+    ld [firstStateFrame], a
+    ld [playerTile], a
+
+    ret
