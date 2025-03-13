@@ -1,6 +1,7 @@
 INCLUDE "hardware.inc"
 INCLUDE "player.inc"
 INCLUDE "spriteAnim.inc"
+INCLUDE "enemy.inc"
 
 DEF GROUND_HEIGHT = $0E
 DEF GROUND_HEIGHT_PX = $70
@@ -8,12 +9,9 @@ DEF GROUND_HEIGHT_PX = $70
 DEF JUMP_INITIAL_ACCEL = -2.0q8
 DEF JUMP_PROLONG_ACCEL = -0.35q8
 DEF GRAVITY_ACCEL = 0.4q8
-DEF VELDECAY_ADD = 0.1q8
+;DEF VELDECAY_ADD = 0.1q8
 
 SECTION "MainGameRAM", WRAM0
-groundMap: ds SCRN_VX_B
-mapPointer: ds 1
-genPointer: ds 1
 isGrounded: ds 1
 
 playerPosX:: ds 2
@@ -25,6 +23,20 @@ playerAccelY:: ds 2
 
 playerAnim:: ds 1
 
+screenScrollSpeed: ds 2
+screenScrollPos: ds 2
+
+EnemySpawnTimer: ds 1
+EnemySlots:
+.enemy1:
+	ds Enemy_Size
+.enemy2:
+	ds Enemy_Size
+.enemy3:
+	ds Enemy_Size
+.enemy4:
+	ds Enemy_Size
+
 SECTION "MainGame", ROM0
 game::
     ld a, [firstStateFrame]
@@ -34,6 +46,24 @@ game::
     call initFrame
 
 .skipFirstFrameLoading:
+
+	call handlePlayerControl
+	call updatePlayer
+	call updateScrolling
+    call handleAnim
+
+	ld a, [playerPosX]
+	ld [playerX], a
+	ld a, [playerPosY]
+	ld [playerY], a
+	ld a, [screenScrollPos]
+	ld [backgroundX], a
+
+    ret
+
+;handles control related player stuff, like making the player jump, making the player fall slower when midair, 
+;and probably in the future, move left and right
+handlePlayerControl:
 	ld a, [isGrounded]
 	cp a, 0
 	jr z, .skipInitiateJump
@@ -64,77 +94,79 @@ game::
 	ld a, LOW(JUMP_PROLONG_ACCEL)
 	ld [playerAccelY+1], a
 .skipProlongateJump:
+	ret
 
+;handles autonomous player update like acceleration, velocity or position
+updatePlayer:
 	ld a, [isGrounded]
 	cp a, 0
-	jr nz, .skipMidAirHandling
+	jr nz, .skipMidAirHandling ;if player is midair
 
 	ld a, [playerAccelY+1]
 	add a, LOW(GRAVITY_ACCEL)
 	ld [playerAccelY+1], a
 	ld a, [playerAccelY]
 	adc a, HIGH(GRAVITY_ACCEL)
-	ld [playerAccelY], a
+	ld [playerAccelY], a        ;apply gravity
 
 	ld a, [playerPosY]
-	cp a, GROUND_HEIGHT_PX + 8 + 1 ; add one to the height of the ground + the height of the sprite, since we're using carry as a flag here for detecting clipping through the ground
-	jr c, .skipSetPlayerPosY
+	cp a, GROUND_HEIGHT_PX + 8 + 1 ; add one to the height of the ground + the height of the sprite, since we're using carry as a flag
+	jr c, .skipSetPlayerPosY ;if player is under the ground
 
 	ld a, GROUND_HEIGHT_PX + 8 ;height of ground + height of sprite since it's the position of the top left corner of the sprite that's defined here
 	ld [playerPosY], a
 	ld a, 0
-	ld [playerPosY+1], a
+	ld [playerPosY+1], a ;we clip player onto the ground
 
 	ld [playerVelY], a
-	ld [playerVelY+1], a
+	ld [playerVelY+1], a ;remove all velocity
 
 	ld [playerAccelY], a
-	ld [playerAccelY+1], a
+	ld [playerAccelY+1], a ;all acceleration as well
 	
 	ld a, 1
-	ld [isGrounded], a
+	ld [isGrounded], a ;player is on ground since clipped to it
 
 .skipSetPlayerPosY:
-
 .skipMidAirHandling:
     
     ld a, [playerVelX+1]
 	ld b, a
     ld a, [playerAccelX+1]
 	add a, b
-	ld [playerVelX+1], a
+	ld [playerVelX+1], a   ;add acceleration to velocity
 
     ld a, [playerVelX]
 	ld b, a
     ld a, [playerAccelX]
     adc a, b
-	ld [playerVelX], a
+	ld [playerVelX], a ;same for high part
 
     ld a, 0
     ld [playerAccelX], a
-    ld [playerAccelX+1], a
+    ld [playerAccelX+1], a ;reset acceleration since it's a one frame variable
 
     ld a, [playerVelY+1]
     ld b, a
     ld a, [playerAccelY+1]
 	add a, b
-	ld [playerVelY+1], a
+	ld [playerVelY+1], a  ;same thing with Y low
 
     ld a, [playerVelY]
     ld b, a
     ld a, [playerAccelY]
     adc a, b
-	ld [playerVelY], a
+	ld [playerVelY], a ;Y high as well
 
     ld a, 0
     ld [playerAccelY], a
-    ld [playerAccelY+1], a
+    ld [playerAccelY+1], a ;Y accel is reset too
 
     ld a, [playerPosX+1]
 	ld b, a
     ld a, [playerVelX+1]
 	add a, b
-	ld [playerPosX+1], a
+	ld [playerPosX+1], a ;now update position depending on velocity
 
     ld a, [playerPosX]
 	ld b, a
@@ -153,90 +185,27 @@ game::
     ld a, [playerVelY]
 	adc a, b
 	ld [playerPosY], a
+	ret
 
-	ld a, [playerVelX+1]
+;updates the scrolling using the scrollSpeed specified by our scrollSpeed variable
+;i plan to make that speed increase as time goes on, to increase difficulty
+;the screen scroll speed is also what will describe at which speed the enemies will move to the left
+updateScrolling:
+    ld a, [screenScrollPos+1]
 	ld b, a
-	ld a, [playerVelX]
-	or a, b
-	jr z, .skipVelDecayX
+    ld a, [screenScrollSpeed+1]
+	add a, b
+	ld [screenScrollPos+1], a
 
-	ld a, [playerVelX]
-	and a, $80
-	jr nz, .handleNegVelDecayX
-
-.handlePosVelDecayX:
-	;ld a, [playerVelX+1]
-	;add a, LOW(VELDECAY_ADD)
-	;ld [playerVelX+1], a
-
-    ;ld a, [playerVelX]
-	;adc a, HIGH(VELDECAY_ADD)
-    ;ld [playerVelX], a
-	jr .checkForVelOverflowX
-
-.handleNegVelDecayX:
-	;ld a, [playerVelX+1]
-	;add a, LOW(-VELDECAY_ADD)
-	;ld [playerVelX+1], a
-
-	;ld a, [playerVelX]
-	;adc a, HIGH(-VELDECAY_ADD)
-	;ld [playerVelX], a
-
-.checkForVelOverflowX:
-	;jr nc, .skipVelDecayX
-	;ld a, 0
-	;ld [playerVelX+1], a
-	;ld [playerVelX], a
-
-.skipVelDecayX:
-	
-	ld a, [playerVelY+1]
+    ld a, [screenScrollPos]
 	ld b, a
-	ld a, [playerVelY]
-	or a, b
-	jr z, .skipVelDecayY
-	
-	ld a, [playerVelY]
-	and a, $80
-	jr nz, .handleNegVelDecayY
+    ld a, [screenScrollSpeed]
+    adc a, b
+	ld [screenScrollPos], a
+	ret
 
-.handlePosVelDecayY:
-	;ld a, [playerVelY+1]
-	;add a, LOW(VELDECAY_ADD)
-	;ld [playerVelY+1], a
-
-    ;ld a, [playerVelY]
-	;adc a, HIGH(VELDECAY_ADD)
-    ;ld [playerVelY], a
-	jr .checkForVelOverflowY
-
-.handleNegVelDecayY:
-	;ld a, [playerVelY+1]
-	;add a, HIGH(-VELDECAY_ADD)
-	;ld [playerVelY+1], a
-
-	;ld a, [playerVelY]
-	;adc a, HIGH(-VELDECAY_ADD)
-	;ld [playerVelY], a
-
-.checkForVelOverflowY:
-	;jr nc, .skipVelDecayY
-	;ld a, 0
-	;ld [playerVelY+1], a
-	;ld [playerVelY], a
-
-.skipVelDecayY:
-
-    call handleAnim
-
-	ld a, [playerPosX]
-	ld [playerX], a
-	ld a, [playerPosY]
-	ld [playerY], a
-
-    ret
-
+;handles the player animation, should modify it a bit and change the name to clarify
+;since enemies will have animations too, probably handled somewhere else
 handleAnim:
     ld a, [playerVelY]
     and a, $80 ;is VelY negative
@@ -291,13 +260,16 @@ handleAnim:
     ld [playerTile], a
     ret
 
+;called once everytime the game state got changed to the main one,
+;serves for initializing the main game state properly so that the game
+;doesn't glitch out
 initFrame:
     call LCDOff ;turn off screen for setup
     
     ld d, 0
     ld hl, _SCRN0
     ld bc, SCRN_VX_B * (SCRN_Y_B-4)
-    call memset ;clear up the title notably
+    call memset ;clear up the title mostly
 
     ld d, 1
     ld hl, _SCRN0 + (SCRN_VX_B * $0E)
@@ -321,12 +293,13 @@ initFrame:
     ld a, LCDCF_ON | LCDCF_BGON | LCDCF_OBJON
     ld [rLCDC], a ;turn back on the LCD
 
-
+	;start position of the player, should define them
     ld a, $20
-    ld [playerPosX], a
+    ld [playerPosX], a 
     ld a, $78
     ld [playerPosY], a
 
+	;initializing to 0 most variables
     ld a, $00
     ld [playerPosX+1], a
     ld [playerPosY+1], a
@@ -338,14 +311,18 @@ initFrame:
     ld [playerAccelX+1], a
     ld [playerAccelY], a
     ld [playerAccelY+1], a
+	ld [screenScrollSpeed], a
+	ld [screenScrollPos], a
+	ld [screenScrollPos+1], a
 
-
-    ld a, SCRN_VX_B-SCRN_X_B
-    ld [mapPointer], a
-    ld [genPointer], a
-
+	;setting the flag that indicates memory has been initialized
+	;also sets up the playerTile, not sure it's still needed, but we never know
     ld a, 1
     ld [firstStateFrame], a
     ld [playerTile], a
+
+	;base scroll speed for now, since scroll speed increase is not yet implemented
+	ld a, $80
+	ld [screenScrollSpeed+1], a
 
     ret
