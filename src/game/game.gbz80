@@ -9,7 +9,6 @@ DEF GROUND_HEIGHT_PX = $70
 DEF JUMP_INITIAL_ACCEL = -2.0q8
 DEF JUMP_PROLONG_ACCEL = -0.35q8
 DEF GRAVITY_ACCEL = 0.4q8
-;DEF VELDECAY_ADD = 0.1q8
 
 SECTION "MainGameRAM", WRAM0
 isGrounded: ds 1
@@ -48,9 +47,11 @@ game::
 .skipFirstFrameLoading:
 
 	call handlePlayerControl
+	call handleEnemySpawn
+	;call updateEnemies
 	call updatePlayer
 	call updateScrolling
-    call handleAnim
+    call handlePlayerAnim
 
 	ld a, [playerPosX]
 	ld [playerX], a
@@ -206,7 +207,7 @@ updateScrolling:
 
 ;handles the player animation, should modify it a bit and change the name to clarify
 ;since enemies will have animations too, probably handled somewhere else
-handleAnim:
+handlePlayerAnim:
     ld a, [playerVelY]
     and a, $80 ;is VelY negative
 	;if it is, the player is moving upward, set the animation to be jumping towards the top of the screen
@@ -259,6 +260,177 @@ handleAnim:
     ld a, ANIM_PLAYER_FALL
     ld [playerTile], a
     ret
+
+DefaultRoller:
+.ID:
+	db ENEMY_ID_ROLLER
+.PosX:
+	dw $FF00
+.Posy:
+	dw GROUND_HEIGHT_PX << 8 | $00
+.EnemyAnimCnt:
+	db 0
+.EnemyTileID:
+	db $5
+.EnemyTileAttribute:
+	db %00000000 ;no attributes for now
+
+DefaultBird:
+.ID:
+	db ENEMY_ID_BIRD
+.PosX:
+	dw $FF00
+.Posy:
+	dw $0000
+.EnemyAnimCnt:
+	db 0
+.EnemyTileID:
+	db $9
+.EnemyTileAttribute:
+	db %00000000 ;no attributes for now
+
+DefaultFrog:
+.ID:
+	db ENEMY_ID_FROG
+.PosX:
+	dw $FF00
+.PosY:
+	dw GROUND_HEIGHT_PX << 8 | $00
+.EnemyAnimCnt:
+	db 0
+.EnemyTileID:
+	db $D
+.EnemyTileAttribute:
+	db %00000000
+
+DefaultGhost:
+.ID:
+	db ENEMY_ID_GHOST
+.PosX:
+	dw $FF00
+.PosY:
+	dw GROUND_HEIGHT_PX << 8 | $00
+.EnemyAnimCnt:
+	db 0
+.EnemyTileID:
+	db $15
+.EnemyTileAttribute:
+	db %00000000
+
+EnemyDataTable:
+	dw DefaultRoller
+	dw DefaultBird
+	dw DefaultFrog
+	dw DefaultGhost
+
+;when the enemy spawn timer counted 120 frames, it finds the first enemy slot, and puts a random enemy in it
+handleEnemySpawn:
+	ld a, [EnemySpawnTimer]
+	inc a
+	cp a, 120
+	jr nz, .end
+
+	ld hl, EnemySlots
+	ld c, 0
+
+	ld de, Enemy_Size ;prepare the size of the struct in advance for pointer increment
+.enemySlotLoop:
+	ld a, [hl]
+	cp a, 0
+	jr z, .endLoop
+	add hl, de
+	inc c
+	ld a, c
+	cp a, 4 ;if smaller than 4
+	jr c, .enemySlotLoop ;we keep going
+	jr .resetCounterAndEnd ;else we stop looking, no slots are available
+.endLoop:
+	ld d, h
+	ld e, l
+	call rand
+	ld h, d
+	ld l, e
+	
+	ld b, h
+	ld c, l
+
+	ld hl, EnemyDataTable
+	and a, %00000011
+	add a, l
+	ld l, a
+	ld a, 0
+	adc a, h
+	ld h, a
+
+	ld a, [hli]
+	ld d, a
+	ld a, [hl]
+	ld e, a
+
+	ld h, b
+	ld l, c
+	ld bc, Enemy_Size
+	call memcpy
+
+.resetCounterAndEnd
+	xor a, a
+.end:
+	ld [EnemySpawnTimer], a
+	ret
+
+;initializes all uninitialized enemies
+;initializeEnemies:
+;	ld a, [EnemySpawnTimer]
+;	cp a, 0
+;	jr nz, .end ;if we did not just spawn an enemy, there's no need to initialize anything
+
+;	ld hl, EnemySlots
+;.checkLoop:
+;	ld a, [hl]
+;	cp a, 0 ;is it an empty slot?
+;	jr nz, .checkTileID ;if not, we need to check if it's uninitialized
+;.nextSlot
+;	ld de, Enemy_Size
+;	add hl, de ;next slot
+;	inc c ;check if we exceed max slot
+;	ld a, c
+;	cp a, 4
+;	jr c, .end ;there's no more slot to initialize, let's return
+;	jr .checkLoop
+;.checkTileID:
+;	ld de, EnemyTileID
+;	add hl, de
+;	ld a, [hl]
+;	cp a, 0
+;	jr z, .initialize
+;	ld de, Enemy_Size - EnemyTileID
+;	add hl, de
+;	jr .checkLoop
+;.initialize:
+;	ld de, EnemyTileID
+;	sub hl, de
+;	ld a, [hl]
+;	dec a ;decrement to have an index between 0 and 3
+;	push hl ;backup hl, we'll need hl here for a memcpy
+;	push bc ;same for bc
+;	push de ;same for de
+;	ld de, EnemyDataTable
+;	sla a ;multiply by 2 to handle offsets properly (they're pointers)
+;	add a, e ;EnemyDataTable + 2 * a where a is the enemy type index
+;	ld e, a
+;	ld a, 0
+;	adc a, d
+;	ld d, a
+;	ld bc, Enemy_Size ;we wanna initialize an enemy
+;	call memcpy
+;	pop de
+;	pop bc
+;	pop hl
+;	jr .nextSlot
+;
+;.end:
+;	ret
+	
 
 ;called once everytime the game state got changed to the main one,
 ;serves for initializing the main game state properly so that the game
@@ -314,6 +486,12 @@ initFrame:
 	ld [screenScrollSpeed], a
 	ld [screenScrollPos], a
 	ld [screenScrollPos+1], a
+	ld [EnemySpawnTimer], a
+
+	ld d, 0
+	ld hl, EnemySlots
+	ld bc, Enemy_Size * 4 ;we wanna clear all enemy slots
+	call memset
 
 	;setting the flag that indicates memory has been initialized
 	;also sets up the playerTile, not sure it's still needed, but we never know

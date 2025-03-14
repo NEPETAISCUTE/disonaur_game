@@ -7,7 +7,7 @@ IF !DEF(ENEMY_INC)
 	DEF Enemy_PosX RB 2 ;speaks for itself
 	DEF Enemy_PosY RB 2 ;speaks for itself
 	DEF EnemyAnimCnt RB 1 ;frame counter for animation handling
-	DEF EnemyTileID RB 1 ;current tile ID for the enemy in question
+	DEF EnemyTileID RB 1 ;current tile ID for the enemy in question, if it is 0, we know the slot isn't initialized
 	DEF EnemyTileAttribute RB 1 ;tile attribute of the enemy, mostly for palette swapping and tileflipping
 	DEF Enemy_Size RB 0 ;size of the struct
 
