@@ -378,59 +378,24 @@ handleEnemySpawn:
 	ld [EnemySpawnTimer], a
 	ret
 
-;initializes all uninitialized enemies
-;initializeEnemies:
-;	ld a, [EnemySpawnTimer]
-;	cp a, 0
-;	jr nz, .end ;if we did not just spawn an enemy, there's no need to initialize anything
+updateEnemies:
+	ld hl, EnemySlots
 
-;	ld hl, EnemySlots
-;.checkLoop:
-;	ld a, [hl]
-;	cp a, 0 ;is it an empty slot?
-;	jr nz, .checkTileID ;if not, we need to check if it's uninitialized
-;.nextSlot
-;	ld de, Enemy_Size
-;	add hl, de ;next slot
-;	inc c ;check if we exceed max slot
-;	ld a, c
-;	cp a, 4
-;	jr c, .end ;there's no more slot to initialize, let's return
-;	jr .checkLoop
-;.checkTileID:
-;	ld de, EnemyTileID
-;	add hl, de
-;	ld a, [hl]
-;	cp a, 0
-;	jr z, .initialize
-;	ld de, Enemy_Size - EnemyTileID
-;	add hl, de
-;	jr .checkLoop
-;.initialize:
-;	ld de, EnemyTileID
-;	sub hl, de
-;	ld a, [hl]
-;	dec a ;decrement to have an index between 0 and 3
-;	push hl ;backup hl, we'll need hl here for a memcpy
-;	push bc ;same for bc
-;	push de ;same for de
-;	ld de, EnemyDataTable
-;	sla a ;multiply by 2 to handle offsets properly (they're pointers)
-;	add a, e ;EnemyDataTable + 2 * a where a is the enemy type index
-;	ld e, a
-;	ld a, 0
-;	adc a, d
-;	ld d, a
-;	ld bc, Enemy_Size ;we wanna initialize an enemy
-;	call memcpy
-;	pop de
-;	pop bc
-;	pop hl
-;	jr .nextSlot
-;
-;.end:
-;	ret
+	ld de, Enemy_Size
+	ld c, 0
+.loop:
+	ld a, [hl]
+	cp a, 0
+	jr nz, .updateEnemy
+	add hl, de
+	inc c
+	ld a, c
+	cp a, 4
+	jr c, .loop
+	ret
+.updateEnemy:
 	
+
 
 ;called once everytime the game state got changed to the main one,
 ;serves for initializing the main game state properly so that the game
