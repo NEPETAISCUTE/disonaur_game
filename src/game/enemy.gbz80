@@ -1,0 +1,154 @@
+INCLUDE "enemy.inc"
+
+DEF GROUND_HEIGHT_PX = $70
+
+SECTION "EnemyVariables", WRAM0
+
+EnemySpawnTimer:: ds 1
+EnemySlots::
+.enemy1::
+	ds Enemy_Size
+.enemy2::
+	ds Enemy_Size
+.enemy3::
+	ds Enemy_Size
+.enemy4::
+	ds Enemy_Size
+
+SECTION "EnemyData", ROM0
+
+DefaultRoller:
+.ID:
+	db ENEMY_ID_ROLLER
+.PosX:
+	dw $FF00
+.Posy:
+	dw GROUND_HEIGHT_PX << 8 | $00
+.EnemyAnimCnt:
+	db 0
+.EnemyTileID:
+	db $5
+.EnemyTileAttribute:
+	db %00000000 ;no attributes for now
+
+DefaultBird:
+.ID:
+	db ENEMY_ID_BIRD
+.PosX:
+	dw $FF00
+.Posy:
+	dw $0000
+.EnemyAnimCnt:
+	db 0
+.EnemyTileID:
+	db $9
+.EnemyTileAttribute:
+	db %00000000 ;no attributes for now
+
+DefaultFrog:
+.ID:
+	db ENEMY_ID_FROG
+.PosX:
+	dw $FF00
+.PosY:
+	dw GROUND_HEIGHT_PX << 8 | $00
+.EnemyAnimCnt:
+	db 0
+.EnemyTileID:
+	db $D
+.EnemyTileAttribute:
+	db %00000000
+
+DefaultGhost:
+.ID:
+	db ENEMY_ID_GHOST
+.PosX:
+	dw $FF00
+.PosY:
+	dw GROUND_HEIGHT_PX << 8 | $00
+.EnemyAnimCnt:
+	db 0
+.EnemyTileID:
+	db $15
+.EnemyTileAttribute:
+	db %00000000
+
+EnemyDataTable:
+	dw DefaultRoller
+	dw DefaultBird
+	dw DefaultFrog
+	dw DefaultGhost
+
+SECTION "EnemyCode", ROM0
+
+;when the enemy spawn timer counted 120 frames, it finds the first enemy slot, and puts a random enemy in it
+handleEnemySpawn:
+	ld a, [EnemySpawnTimer]
+	inc a
+	cp a, 120
+	jr nz, .end
+
+	ld hl, EnemySlots
+	ld c, 0
+
+	ld de, Enemy_Size ;prepare the size of the struct in advance for pointer increment
+.enemySlotLoop:
+	ld a, [hl]
+	cp a, 0
+	jr z, .endLoop
+	add hl, de
+	inc c
+	ld a, c
+	cp a, 4 ;if smaller than 4
+	jr c, .enemySlotLoop ;we keep going
+	jr .resetCounterAndEnd ;else we stop looking, no slots are available
+.endLoop:
+	ld d, h
+	ld e, l
+	call rand
+	ld h, d
+	ld l, e
+	
+	ld b, h
+	ld c, l
+
+	ld hl, EnemyDataTable
+	and a, %00000011
+	add a, l
+	ld l, a
+	ld a, 0
+	adc a, h
+	ld h, a
+
+	ld a, [hli]
+	ld d, a
+	ld a, [hl]
+	ld e, a
+
+	ld h, b
+	ld l, c
+	ld bc, Enemy_Size
+	call memcpy
+
+.resetCounterAndEnd
+	xor a, a
+.end:
+	ld [EnemySpawnTimer], a
+	ret
+updateEnemies:
+	ret ;temporary, to avoid crash
+	ld hl, EnemySlots
+
+	ld de, Enemy_Size
+	ld c, 0
+.loop:
+	ld a, [hl]
+	cp a, 0
+	jr nz, .updateEnemy
+	add hl, de
+	inc c
+	ld a, c
+	cp a, 4
+	jr c, .loop
+	ret
+.updateEnemy:

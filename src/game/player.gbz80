@@ -1,0 +1,218 @@
+INCLUDE "hardware.inc"
+INCLUDE "player.inc"
+INCLUDE "spriteAnim.inc"
+
+DEF GROUND_HEIGHT_PX = $70
+
+DEF JUMP_INITIAL_ACCEL = -2.0q8
+DEF JUMP_PROLONG_ACCEL = -0.35q8
+DEF GRAVITY_ACCEL = 0.4q8
+
+SECTION "PlayerVariables", WRAM0
+
+isGrounded:: ds 1
+playerPosX:: ds 2
+playerPosY:: ds 2
+playerVelX:: ds 2
+playerVelY:: ds 2
+playerAccelX:: ds 2
+playerAccelY:: ds 2
+
+playerAnim:: ds 1
+
+SECTION "PlayerCode", ROM0
+
+;handles everything related to the player
+updatePlayer::
+	call handlePlayerControl
+	call updatePlayerPhysics
+    call handlePlayerAnim
+
+	ld a, [playerPosX]
+	ld [playerX], a
+	ld a, [playerPosY]
+	ld [playerY], a
+
+	ret
+
+;handles control related player stuff, like making the player jump, making the player fall slower when midair, 
+;and probably in the future, move left and right
+handlePlayerControl:
+	ld a, [isGrounded]
+	cp a, 0
+	jr z, .skipInitiateJump
+
+    ld a, [pressedInput]
+    and a, PADF_A
+    jr z, .skipProlongateJump
+
+	ld a, HIGH(JUMP_INITIAL_ACCEL)
+    ld [playerAccelY], a
+	ld a, LOW(JUMP_INITIAL_ACCEL)
+	ld [playerAccelY+1], a
+    ld a, 0
+    ld [isGrounded], a
+	ld [playerVelY], a
+	jr .skipProlongateJump
+
+.skipInitiateJump:
+    ld a, [currentInput]
+    and a, PADF_A
+    jr z, .skipProlongateJump
+	ld a, [playerVelY]
+	and $80
+	jr z, .skipProlongateJump
+
+    ld a, HIGH(JUMP_PROLONG_ACCEL)
+    ld [playerAccelY], a ;basically corresponds to -32 subpixels and 0 pixels
+	ld a, LOW(JUMP_PROLONG_ACCEL)
+	ld [playerAccelY+1], a
+.skipProlongateJump:
+	ret
+
+;handles autonomous player update like acceleration, velocity or position
+updatePlayerPhysics:
+	ld a, [isGrounded]
+	cp a, 0
+	jr nz, .skipMidAirHandling ;if player is midair
+
+	ld a, [playerAccelY+1]
+	add a, LOW(GRAVITY_ACCEL)
+	ld [playerAccelY+1], a
+	ld a, [playerAccelY]
+	adc a, HIGH(GRAVITY_ACCEL)
+	ld [playerAccelY], a        ;apply gravity
+
+	ld a, [playerPosY]
+	cp a, GROUND_HEIGHT_PX + 8 + 1 ; add one to the height of the ground + the height of the sprite, since we're using carry as a flag
+	jr c, .skipSetPlayerPosY ;if player is under the ground
+
+	ld a, GROUND_HEIGHT_PX + 8 ;height of ground + height of sprite since it's the position of the top left corner of the sprite that's defined here
+	ld [playerPosY], a
+	ld a, 0
+	ld [playerPosY+1], a ;we clip player onto the ground
+
+	ld [playerVelY], a
+	ld [playerVelY+1], a ;remove all velocity
+
+	ld [playerAccelY], a
+	ld [playerAccelY+1], a ;all acceleration as well
+	
+	ld a, 1
+	ld [isGrounded], a ;player is on ground since clipped to it
+
+.skipSetPlayerPosY:
+.skipMidAirHandling:
+    
+    ld a, [playerVelX+1]
+	ld b, a
+    ld a, [playerAccelX+1]
+	add a, b
+	ld [playerVelX+1], a   ;add acceleration to velocity
+
+    ld a, [playerVelX]
+	ld b, a
+    ld a, [playerAccelX]
+    adc a, b
+	ld [playerVelX], a ;same for high part
+
+    ld a, 0
+    ld [playerAccelX], a
+    ld [playerAccelX+1], a ;reset acceleration since it's a one frame variable
+
+    ld a, [playerVelY+1]
+    ld b, a
+    ld a, [playerAccelY+1]
+	add a, b
+	ld [playerVelY+1], a  ;same thing with Y low
+
+    ld a, [playerVelY]
+    ld b, a
+    ld a, [playerAccelY]
+    adc a, b
+	ld [playerVelY], a ;Y high as well
+
+    ld a, 0
+    ld [playerAccelY], a
+    ld [playerAccelY+1], a ;Y accel is reset too
+
+    ld a, [playerPosX+1]
+	ld b, a
+    ld a, [playerVelX+1]
+	add a, b
+	ld [playerPosX+1], a ;now update position depending on velocity
+
+    ld a, [playerPosX]
+	ld b, a
+    ld a, [playerVelX]
+	adc a, b
+	ld [playerPosX], a
+
+    ld a, [playerPosY+1]
+	ld b, a
+    ld a, [playerVelY+1]
+	add a, b
+	ld [playerPosY+1], a
+
+    ld a, [playerPosY]
+    ld b, a
+    ld a, [playerVelY]
+	adc a, b
+	ld [playerPosY], a
+	ret
+
+;handles the player animation, should modify it a bit and change the name to clarify
+;since enemies will have animations too, probably handled somewhere else
+handlePlayerAnim:
+    ld a, [playerVelY]
+    and a, $80 ;is VelY negative
+	;if it is, the player is moving upward, set the animation to be jumping towards the top of the screen
+    jr nz, .setJumping 
+	cp a, 0
+	;if it's nonzero it's positive, falling animation since the player moves towards the bottom of the screen
+    jr nz, .setFalling 
+
+	ld a, [playerVelY + 1]
+	cp a, 0
+	;same as for the nonzero case of before, we gotta check for the decimal part
+	jr nz, .setFalling 
+
+	;dunno why the hell i put that here
+	ld a, [playerTile]
+	cp a, 6 ;max index + 1 for the running anim
+	jr c, .skipSetPlayerTile
+	ld a, 1 ;min index for the running anim
+	ld [playerTile], a
+	;-----------------------------------
+.skipSetPlayerTile:
+    ld a, [playerAnim] ;variable name is ambiguous, it's a frame timer before animation update for running anim
+    cp a, 6 ;every 6 frames
+    jr nz, .skipAnimCnt
+    ld a, 0
+    ld [playerAnim], a ;reset frame counter
+    ld hl, playerTile
+    inc [hl] ;increment the player tile ID
+    ld a, [playerTile] ;if we reach the end of the animation
+	cp a, 5
+    jr nz, .skipAnimCnt
+    ld a, 1 ;we reset it to the start of the animation
+    ld [playerTile], a
+.skipAnimCnt:
+    ld hl, playerAnim
+    inc [hl] ;increment the counter
+    ret
+;.setIdle:
+    ;ld a, ANIM_PLAYER_IDLE
+    ;ld [playerTile], a
+    ;ret
+
+.setJumping:
+    ld a, ANIM_PLAYER_JUMP
+    ld [playerTile], a
+    ret 
+
+.setFalling:
+    ld a, ANIM_PLAYER_FALL
+    ld [playerTile], a
+    ret
+
